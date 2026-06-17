@@ -8,131 +8,115 @@
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600;700&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 :root{
-  --bg:#E8E4DC;
-  --azul:#1B2FBE;
-  --rojo:#D93B2B;
-  --text:#0f1120;
-  --muted:#6b6a72;
-  --white:#ffffff;
-  --card:#f5f2ec;
-  --border:#d4cfc5;
-  --shadow:0 2px 10px rgba(27,47,190,0.08);
+  --azul:#1B2ED4;
+  --rojo:#E8341A;
+  --fondo:#E8E4DC;
+  --blanco:#FFFFFF;
+  --texto:#111111;
+  --muted:#666660;
+  --border:#ccc8be;
+  --shadow:0 2px 12px rgba(27,46,212,0.10);
 }
-body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px;}
-
-/* HEADER */
+body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);min-height:100vh;padding-bottom:80px;}
 .app-header{background:var(--azul);padding:16px 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
-.app-header h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--white);letter-spacing:2px;}
+.app-header h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--blanco);letter-spacing:2px;}
 .app-header h1 span{color:var(--rojo);}
-.app-header small{font-size:11px;color:rgba(255,255,255,0.6);font-weight:500;}
-
-/* TABS */
+.app-header .fecha{font-size:11px;color:rgba(255,255,255,0.6);font-weight:500;}
 .tabs{display:flex;background:var(--azul);padding:0 12px 12px;gap:8px;}
-.tab{flex:1;padding:9px 4px;border:none;border-radius:10px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.6);transition:all 0.2s;-webkit-tap-highlight-color:transparent;}
-.tab.active{background:var(--rojo);color:var(--white);}
-
-/* PAGES */
+.tab{flex:1;padding:9px 4px;border:none;border-radius:10px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);transition:all 0.2s;-webkit-tap-highlight-color:transparent;letter-spacing:0.3px;}
+.tab.active{background:var(--rojo);color:var(--blanco);}
 .page{display:none;padding:16px;}
 .page.active{display:block;}
 
-/* BCV BAR */
-.bcv-bar{background:var(--azul);border-radius:14px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);}
-.bcv-bar label{font-size:12px;font-weight:700;color:rgba(255,255,255,0.7);white-space:nowrap;}
-.bcv-bar input{flex:1;border:2px solid rgba(255,255,255,0.2);border-radius:8px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:var(--white);background:rgba(255,255,255,0.1);outline:none;-webkit-appearance:none;}
-.bcv-bar input::placeholder{color:rgba(255,255,255,0.35);}
-.bcv-bar input:focus{border-color:rgba(255,255,255,0.6);}
-.bcv-badge{background:var(--rojo);color:var(--white);font-size:10px;font-weight:800;padding:5px 12px;border-radius:20px;white-space:nowrap;}
+/* BCV */
+.bcv-bar{background:var(--blanco);border:2px solid var(--azul);border-radius:14px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);}
+.bcv-bar label{font-size:12px;font-weight:700;color:var(--azul);white-space:nowrap;}
+.bcv-bar input{flex:1;border:2px solid var(--border);border-radius:8px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:var(--texto);background:var(--fondo);outline:none;-webkit-appearance:none;}
+.bcv-bar input:focus{border-color:var(--azul);}
+.bcv-badge{background:var(--azul);color:var(--blanco);font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;white-space:nowrap;}
 
 /* CATEGORÍAS */
 .cat-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:14px;scrollbar-width:none;}
 .cat-scroll::-webkit-scrollbar{display:none;}
-.cat-btn{white-space:nowrap;padding:7px 16px;border-radius:20px;border:2px solid var(--border);background:var(--white);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all 0.15s;}
-.cat-btn.active{background:var(--azul);color:var(--white);border-color:var(--azul);}
+.cat-btn{white-space:nowrap;padding:7px 14px;border-radius:20px;border:2px solid var(--border);background:var(--blanco);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:all 0.15s;}
+.cat-btn.active{background:var(--azul);color:var(--blanco);border-color:var(--azul);}
 
 /* PRODUCTOS */
 .products-list{display:flex;flex-direction:column;gap:8px;}
-.product-card{background:var(--white);border:2px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:var(--shadow);}
-.product-card.in-cart{border-color:var(--azul);background:#f0f2ff;}
+.product-card{background:var(--blanco);border:2px solid var(--border);border-radius:14px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:var(--shadow);}
+.product-card.has-qty{border-color:var(--azul);}
 .product-info{flex:1;}
-.product-name{font-size:13px;font-weight:600;color:var(--text);line-height:1.3;}
-.product-cat{font-size:10px;color:var(--muted);margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
+.product-name{font-size:13px;font-weight:600;color:var(--texto);line-height:1.3;}
+.product-cat{font-size:10px;color:var(--muted);margin-top:2px;font-weight:500;}
 .product-price{font-size:14px;font-weight:800;color:var(--rojo);white-space:nowrap;}
 .qty-control{display:flex;align-items:center;gap:6px;}
-.qty-btn{width:32px;height:32px;border-radius:50%;border:none;font-size:18px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
-.qty-btn.minus{background:var(--bg);color:var(--azul);border:2px solid var(--border);}
-.qty-btn.plus{background:var(--azul);color:var(--white);}
+.qty-btn{width:30px;height:30px;border-radius:50%;border:none;font-size:18px;font-weight:700;cursor:pointer;-webkit-tap-highlight-color:transparent;display:flex;align-items:center;justify-content:center;transition:all 0.15s;}
+.qty-btn.minus{background:var(--fondo);color:var(--azul);border:2px solid var(--border);}
+.qty-btn.plus{background:var(--azul);color:var(--blanco);}
 .qty-btn:active{transform:scale(0.88);}
-.qty-num{font-size:15px;font-weight:800;min-width:22px;text-align:center;color:var(--azul);}
+.qty-num{font-size:15px;font-weight:800;min-width:20px;text-align:center;color:var(--azul);}
 
 /* CARRITO */
-.order-summary{background:var(--azul);border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:var(--shadow);}
-.order-summary h3{font-size:11px;font-weight:800;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;}
-.order-item{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.1);color:var(--white);}
+.order-summary{background:var(--blanco);border:2px solid var(--azul);border-radius:14px;padding:14px;margin-bottom:14px;box-shadow:var(--shadow);}
+.order-summary h3{font-size:11px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px;}
+.order-item{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;border-bottom:1px solid var(--fondo);}
 .order-item:last-child{border:none;}
-.order-item span:last-child{font-weight:700;color:rgba(255,255,255,0.85);}
-.order-total{display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px;padding-top:10px;border-top:2px solid rgba(255,255,255,0.25);}
-.order-total-label{font-size:13px;font-weight:700;color:rgba(255,255,255,0.7);}
-.order-total-usd{font-size:22px;font-weight:800;color:var(--white);}
-.order-total-bs{font-size:11px;color:rgba(255,255,255,0.55);margin-top:2px;}
+.order-total{display:flex;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:2px solid var(--azul);}
+.order-total span:first-child{font-size:14px;font-weight:800;color:var(--azul);}
+.order-total-usd{font-size:20px;font-weight:800;color:var(--rojo);}
+.order-total-bs{font-size:11px;color:var(--muted);text-align:right;margin-top:2px;}
 
-/* MÉTODO DE PAGO */
-.pay-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:8px;}
+/* PAGO */
+.pay-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--azul);margin-bottom:8px;}
 .pay-methods{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
-.pay-btn{padding:12px 8px;border:2px solid var(--border);border-radius:12px;background:var(--white);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;transition:all 0.15s;}
-.pay-btn.selected{border-color:var(--rojo);background:var(--rojo);color:var(--white);}
+.pay-btn{padding:12px 8px;border:2px solid var(--border);border-radius:12px;background:var(--blanco);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;transition:all 0.15s;}
+.pay-btn.selected{border-color:var(--rojo);background:var(--rojo);color:var(--blanco);}
 
-/* BTN GUARDAR */
-.btn-save{width:100%;background:var(--rojo);color:var(--white);border:none;border-radius:14px;padding:16px;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity 0.2s;letter-spacing:0.5px;}
-.btn-save:active{opacity:0.85;}
+/* GUARDAR */
+.btn-save{width:100%;background:var(--azul);color:var(--blanco);border:none;border-radius:14px;padding:16px;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity 0.2s;letter-spacing:1px;}
+.btn-save:active{opacity:0.82;}
 .btn-save:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
+
+/* HISTORIAL */
+.order-history-item{background:var(--blanco);border:2px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
+.order-history-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+.order-num{font-size:12px;font-weight:800;color:var(--azul);background:var(--fondo);padding:3px 10px;border-radius:20px;border:1.5px solid var(--border);}
+.order-pay-tag{font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;}
+.pay-pm{background:#dbeafe;color:#1B2ED4;}
+.pay-pos{background:#fef3e2;color:#b07d00;}
+.pay-ebs{background:#dcfce7;color:#166534;}
+.pay-ediv{background:#f3e8ff;color:#6b21a8;}
+.order-history-products{font-size:12px;color:var(--muted);margin-bottom:6px;line-height:1.5;}
+.order-history-total{font-size:14px;font-weight:800;color:var(--rojo);}
+
+/* RESUMEN */
+.summary-date{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--azul);margin-bottom:16px;text-transform:capitalize;}
+.summary-card{background:var(--blanco);border:2px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow);}
+.summary-card h3{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--azul);margin-bottom:12px;}
+.summary-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--fondo);font-size:13px;}
+.summary-row:last-child{border:none;}
+.summary-row .val{font-weight:800;color:var(--rojo);}
+.summary-total-row{display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:2px solid var(--azul);font-size:16px;font-weight:800;}
+
+/* DATE */
+.date-select{display:flex;gap:8px;margin-bottom:14px;align-items:center;}
+.date-select input[type=date]{flex:1;border:2px solid var(--border);border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:13px;background:var(--blanco);color:var(--texto);outline:none;-webkit-appearance:none;}
+.date-select input:focus{border-color:var(--azul);}
+.btn-today{background:var(--azul);color:var(--blanco);border:none;border-radius:10px;padding:9px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
 
 /* EMPTY */
 .empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:14px;}
 .empty-icon{font-size:40px;margin-bottom:10px;}
 
-/* HISTORIAL */
-.order-history-item{background:var(--white);border:2px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;box-shadow:var(--shadow);}
-.order-history-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
-.order-num{font-size:12px;font-weight:800;color:var(--azul);background:#eef0ff;padding:3px 10px;border-radius:20px;border:1.5px solid #c5cbf5;}
-.order-pay-tag{font-size:10px;font-weight:800;padding:3px 10px;border-radius:20px;}
-.pay-pm{background:#dbeafe;color:#1d4ed8;}
-.pay-pos{background:#fef3c7;color:#92400e;}
-.pay-ebs{background:#dcfce7;color:#166534;}
-.pay-ediv{background:#f3e8ff;color:#6b21a8;}
-.order-history-products{font-size:12px;color:var(--muted);margin-bottom:6px;line-height:1.5;}
-.order-history-total{font-size:15px;font-weight:800;color:var(--azul);}
-
-/* RESUMEN */
-.summary-date{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--azul);margin-bottom:16px;}
-.summary-card{background:var(--white);border:2px solid var(--border);border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow);}
-.summary-card h3{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:var(--muted);margin-bottom:12px;}
-.summary-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;}
-.summary-row:last-child{border:none;}
-.summary-row .val{font-weight:800;color:var(--azul);}
-.summary-total-card{background:var(--azul);border-radius:14px;padding:16px;margin-bottom:12px;}
-.summary-total-card h3{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,0.6);margin-bottom:12px;}
-.summary-total-row{display:flex;justify-content:space-between;align-items:flex-end;}
-.summary-total-row .count{font-size:13px;color:rgba(255,255,255,0.6);font-weight:600;}
-.summary-total-row .amount{text-align:right;}
-.summary-total-row .usd{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--white);}
-.summary-total-row .bs{font-size:12px;color:rgba(255,255,255,0.55);margin-top:2px;}
-
-/* DATE SELECT */
-.date-select{display:flex;gap:8px;margin-bottom:14px;align-items:center;}
-.date-select input[type=date]{flex:1;border:2px solid var(--border);border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:13px;background:var(--white);color:var(--text);outline:none;-webkit-appearance:none;}
-.date-select input:focus{border-color:var(--azul);}
-.btn-today{background:var(--azul);color:var(--white);border:none;border-radius:10px;padding:9px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
-
 /* TOAST */
-.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--azul);color:white;padding:10px 24px;border-radius:20px;font-weight:800;font-size:13px;transition:transform 0.3s;z-index:200;pointer-events:none;border:2px solid rgba(255,255,255,0.2);}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--azul);color:white;padding:10px 24px;border-radius:20px;font-weight:800;font-size:13px;transition:transform 0.3s;z-index:200;pointer-events:none;}
 .toast.show{transform:translateX(-50%) translateY(0);}
 </style>
 </head>
 <body>
-
 <div class="app-header">
   <h1>GUA<span>YOYO</span></h1>
-  <small id="headerDate"></small>
+  <span class="fecha" id="headerDate"></span>
 </div>
 <div class="tabs">
   <button class="tab active" onclick="showPage('nuevo',this)">➕ Nuevo</button>
@@ -145,17 +129,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="bcv-bar">
     <label>💵 Tasa BCV</label>
     <input type="number" id="tasaBCV" placeholder="0.00" inputmode="decimal" oninput="updateTotals()">
-    <div class="bcv-badge">Bs / USD</div>
+    <div class="bcv-badge">Bs/USD</div>
   </div>
   <div class="order-summary" id="cartSummary" style="display:none;">
     <h3>🛒 Pedido actual</h3>
     <div id="cartItems"></div>
     <div class="order-total">
+      <span>Total</span>
       <div>
-        <div class="order-total-label">Total a cobrar</div>
+        <div class="order-total-usd" id="cartTotalUSD">$0.00</div>
         <div class="order-total-bs" id="cartTotalBs"></div>
       </div>
-      <div class="order-total-usd" id="cartTotalUSD">$0.00</div>
     </div>
   </div>
   <div class="cat-scroll" id="catScroll"></div>
@@ -239,7 +223,6 @@ const MENU=[
 const CATS=['Todos',...new Set(MENU.map(p=>p.cat))];
 const PAY_LABELS={PM:'Pago Móvil',POS:'POS/Tarjeta',EBS:'Efectivo Bs',EDIV:'Efectivo Divisas'};
 const PAY_CLASS={PM:'pay-pm',POS:'pay-pos',EBS:'pay-ebs',EDIV:'pay-ediv'};
-
 let cart={},selectedPay='',currentCat='Todos';
 
 function todayKey(){return new Date().toISOString().slice(0,10);}
@@ -248,12 +231,13 @@ function saveOrders(dk,o){localStorage.setItem('guayoyo_'+dk,JSON.stringify(o));
 
 window.onload=function(){
   document.getElementById('headerDate').textContent=
-    new Date().toLocaleDateString('es-ES',{weekday:'short',day:'2-digit',month:'short'}).toUpperCase();
+    new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
   const cs=document.getElementById('catScroll');
   CATS.forEach(cat=>{
     const b=document.createElement('button');
     b.className='cat-btn'+(cat==='Todos'?' active':'');
-    b.textContent=cat;b.onclick=()=>filterCat(cat);cs.appendChild(b);
+    b.textContent=cat; b.onclick=()=>filterCat(cat);
+    cs.appendChild(b);
   });
   renderProducts();setTodayPedidos();setTodayResumen();
 };
@@ -270,7 +254,7 @@ function renderProducts(){
   filtered.forEach(p=>{
     const idx=MENU.indexOf(p);const qty=cart[idx]||0;
     const card=document.createElement('div');
-    card.className='product-card'+(qty>0?' in-cart':'');
+    card.className='product-card'+(qty>0?' has-qty':'');
     card.id='card-'+idx;
     card.innerHTML=`
       <div class="product-info">
@@ -288,11 +272,11 @@ function renderProducts(){
 }
 
 function changeQty(idx,delta){
-  const cur=cart[idx]||0;const next=Math.max(0,cur+delta);
+  const next=Math.max(0,(cart[idx]||0)+delta);
   if(next===0)delete cart[idx];else cart[idx]=next;
   const el=document.getElementById('qty-'+idx);if(el)el.textContent=next;
   const card=document.getElementById('card-'+idx);
-  if(card)card.className='product-card'+(next>0?' in-cart':'');
+  if(card)card.classList.toggle('has-qty',next>0);
   updateTotals();
 }
 
@@ -308,10 +292,10 @@ function updateTotals(){
   else{
     cs.style.display='block';
     document.getElementById('cartItems').innerHTML=items.map(i=>
-      `<div class="order-item"><span>${i.qty}× ${i.name}</span><span>$${i.subtotal.toFixed(2)}</span></div>`
+      `<div class="order-item"><span>${i.qty}× ${i.name}</span><span style="font-weight:700;color:var(--rojo);">$${i.subtotal.toFixed(2)}</span></div>`
     ).join('');
     document.getElementById('cartTotalUSD').textContent=`$${totalUSD.toFixed(2)}`;
-    document.getElementById('cartTotalBs').textContent=tasa>0?`Bs ${(totalUSD*tasa).toFixed(2)}`:'Ingresa tasa BCV ↑';
+    document.getElementById('cartTotalBs').textContent=tasa>0?`Bs ${(totalUSD*tasa).toFixed(2)}`:'Ingresa tasa BCV';
   }
   document.getElementById('btnGuardar').disabled=!(Object.keys(cart).length>0&&selectedPay!=='');
 }
@@ -337,7 +321,7 @@ function guardarPedido(){
   cart={};selectedPay='';
   document.querySelectorAll('.pay-btn').forEach(b=>b.classList.remove('selected'));
   document.querySelectorAll('.qty-num').forEach(el=>el.textContent='0');
-  document.querySelectorAll('.product-card').forEach(c=>c.classList.remove('in-cart'));
+  document.querySelectorAll('.product-card').forEach(c=>c.classList.remove('has-qty'));
   document.getElementById('cartSummary').style.display='none';
   document.getElementById('btnGuardar').disabled=true;
   showToast(`✅ Pedido #${num} guardado`);
@@ -349,7 +333,7 @@ function setTodayResumen(){document.getElementById('resumenDate').value=todayKey
 function renderPedidos(){
   const dk=document.getElementById('pedidosDate').value;
   const orders=getOrders(dk);const list=document.getElementById('pedidosList');
-  if(orders.length===0){list.innerHTML=`<div class="empty"><div class="empty-icon">📋</div>Sin pedidos este día</div>`;return;}
+  if(!orders.length){list.innerHTML=`<div class="empty"><div class="empty-icon">📋</div>Sin pedidos este día</div>`;return;}
   list.innerHTML=[...orders].reverse().map(o=>`
     <div class="order-history-item">
       <div class="order-history-header">
@@ -357,34 +341,34 @@ function renderPedidos(){
         <span class="order-pay-tag ${PAY_CLASS[o.pay]}">${PAY_LABELS[o.pay]}</span>
       </div>
       <div class="order-history-products">${o.items.map(i=>`${i.qty}× ${i.name}`).join(' · ')}</div>
-      <div class="order-history-total">$${o.totalUSD.toFixed(2)} USD${o.totalBs?` &nbsp;<span style="font-size:12px;color:var(--muted);font-weight:600;">Bs ${o.totalBs.toFixed(2)}</span>`:''}</div>
+      <div class="order-history-total">$${o.totalUSD.toFixed(2)} USD${o.totalBs?` &nbsp;<span style="font-size:12px;color:var(--muted);font-weight:500;">Bs ${o.totalBs.toFixed(2)}</span>`:''}</div>
     </div>`).join('');
 }
 
 function renderResumen(){
   const dk=document.getElementById('resumenDate').value;
   const orders=getOrders(dk);const el=document.getElementById('resumenContent');
-  if(orders.length===0){el.innerHTML=`<div class="empty"><div class="empty-icon">📊</div>Sin ventas este día</div>`;return;}
-  const byPay={};const byProd={};let totalUSD=0;let totalBs=0;
+  if(!orders.length){el.innerHTML=`<div class="empty"><div class="empty-icon">📊</div>Sin ventas este día</div>`;return;}
+  const byPay={},byProduct={};let totalUSD=0,totalBs=0;
   orders.forEach(o=>{
-    if(!byPay[o.pay])byPay[o.pay]={usd:0,count:0};
-    byPay[o.pay].usd+=o.totalUSD;byPay[o.pay].count++;
+    if(!byPay[o.pay])byPay[o.pay]={usd:0,bs:0,count:0};
+    byPay[o.pay].usd+=o.totalUSD;byPay[o.pay].bs+=o.totalBs||0;byPay[o.pay].count++;
     totalUSD+=o.totalUSD;totalBs+=o.totalBs||0;
     o.items.forEach(item=>{
-      if(!byProd[item.name])byProd[item.name]={qty:0,usd:0};
-      byProd[item.name].qty+=item.qty;byProd[item.name].usd+=item.subtotal;
+      if(!byProduct[item.name])byProduct[item.name]={qty:0,usd:0};
+      byProduct[item.name].qty+=item.qty;byProduct[item.name].usd+=item.subtotal;
     });
   });
-  const dl=new Date(dk+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
+  const dateLabel=new Date(dk+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
   el.innerHTML=`
-    <div class="summary-date">${dl}</div>
-    <div class="summary-total-card">
+    <div class="summary-date">${dateLabel}</div>
+    <div class="summary-card">
       <h3>💰 Total del día</h3>
       <div class="summary-total-row">
-        <span class="count">${orders.length} pedido${orders.length>1?'s':''}</span>
-        <div class="amount">
-          <div class="usd">$${totalUSD.toFixed(2)}</div>
-          ${totalBs>0?`<div class="bs">Bs ${totalBs.toFixed(2)}</div>`:''}
+        <span>${orders.length} pedido${orders.length>1?'s':''}</span>
+        <div style="text-align:right;">
+          <div style="color:var(--rojo);">$${totalUSD.toFixed(2)}</div>
+          ${totalBs>0?`<div style="font-size:12px;color:var(--muted);font-weight:500;">Bs ${totalBs.toFixed(2)}</div>`:''}
         </div>
       </div>
     </div>
@@ -398,10 +382,10 @@ function renderResumen(){
         </div>`).join('')}
     </div>
     <div class="summary-card">
-      <h3>🧾 Productos vendidos</h3>
-      ${Object.entries(byProd).sort((a,b)=>b[1].qty-a[1].qty).map(([name,d])=>`
+      <h3>🧾 Por producto</h3>
+      ${Object.entries(byProduct).sort((a,b)=>b[1].qty-a[1].qty).map(([name,d])=>`
         <div class="summary-row">
-          <span><b>${d.qty}×</b> ${name}</span>
+          <span>${d.qty}× ${name}</span>
           <span class="val">$${d.usd.toFixed(2)}</span>
         </div>`).join('')}
     </div>`;
@@ -413,7 +397,6 @@ function showPage(id,tab){
   document.getElementById('page-'+id).classList.add('active');tab.classList.add('active');
   if(id==='pedidos')renderPedidos();if(id==='resumen')renderResumen();
 }
-
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2500);
