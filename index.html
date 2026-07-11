@@ -21,19 +21,21 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 .app-header{background:var(--azul);padding:16px 20px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;}
 .app-header h1{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--blanco);letter-spacing:2px;}
 .app-header h1 span{color:var(--rojo);}
-.app-header .fecha{font-size:11px;color:rgba(255,255,255,0.6);font-weight:500;}
-.tabs{display:flex;background:var(--azul);padding:0 12px 12px;gap:8px;}
-.tab{flex:1;padding:9px 4px;border:none;border-radius:10px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);transition:all 0.2s;-webkit-tap-highlight-color:transparent;letter-spacing:0.3px;}
+.app-header .fecha{font-size:11px;color:rgba(255,255,255,0.6);font-weight:500;display:block;text-align:right;}
+.sync-badge{font-size:10px;color:rgba(255,255,255,0.55);text-align:right;margin-top:2px;}
+.tabs{display:flex;background:var(--azul);padding:0 12px 12px;gap:8px;overflow-x:auto;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{flex:0 0 auto;padding:9px 14px;border:none;border-radius:10px;font-family:'Inter',sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.12);color:rgba(255,255,255,0.7);transition:all 0.2s;-webkit-tap-highlight-color:transparent;letter-spacing:0.3px;white-space:nowrap;}
 .tab.active{background:var(--rojo);color:var(--blanco);}
 .page{display:none;padding:16px;}
 .page.active{display:block;}
 
 /* BCV */
-.bcv-bar{background:var(--blanco);border:2px solid var(--azul);border-radius:14px;padding:14px 16px;margin-bottom:16px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow);}
-.bcv-bar label{font-size:12px;font-weight:700;color:var(--azul);white-space:nowrap;}
-.bcv-bar input{flex:1;border:2px solid var(--border);border-radius:8px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:var(--texto);background:var(--fondo);outline:none;-webkit-appearance:none;}
-.bcv-bar input:focus{border-color:var(--azul);}
-.bcv-badge{background:var(--azul);color:var(--blanco);font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;white-space:nowrap;}
+.tasas-bar{background:var(--blanco);border:2px solid var(--azul);border-radius:14px;padding:14px 16px;margin-bottom:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;gap:10px;}
+.tasa-row{display:flex;align-items:center;gap:10px;}
+.tasa-row label{font-size:12px;font-weight:700;color:var(--azul);white-space:nowrap;width:96px;}
+.tasa-row input{flex:1;border:2px solid var(--border);border-radius:8px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:16px;font-weight:700;color:var(--texto);background:var(--fondo);outline:none;-webkit-appearance:none;}
+.tasa-row input:focus{border-color:var(--azul);}
 
 /* CATEGORÍAS */
 .cat-scroll{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:14px;scrollbar-width:none;}
@@ -72,10 +74,35 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 .pay-btn{padding:12px 8px;border:2px solid var(--border);border-radius:12px;background:var(--blanco);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;text-align:center;-webkit-tap-highlight-color:transparent;transition:all 0.15s;}
 .pay-btn.selected{border-color:var(--rojo);background:var(--rojo);color:var(--blanco);}
 
+/* TOGGLE LINK (genérico) */
+.toggle-link{background:none;border:none;color:var(--azul);font-size:12px;font-weight:700;cursor:pointer;padding:0;margin-bottom:10px;text-decoration:underline;-webkit-tap-highlight-color:transparent;display:block;}
+
+/* SPLIT PAY */
+.split-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.split-row label{flex:1;font-size:12px;font-weight:600;color:var(--texto);}
+.split-row input{width:110px;border:2px solid var(--border);border-radius:8px;padding:8px 10px;font-family:'Inter',sans-serif;font-size:14px;font-weight:700;text-align:right;outline:none;-webkit-appearance:none;}
+.split-row input:focus{border-color:var(--azul);}
+.split-status{font-size:12px;font-weight:800;padding:10px;border-radius:10px;text-align:center;margin-top:6px;}
+.split-status.ok{background:#dcfce7;color:#166534;}
+.split-status.warn{background:#fef3e2;color:#b07d00;}
+
 /* GUARDAR */
 .btn-save{width:100%;background:var(--azul);color:var(--blanco);border:none;border-radius:14px;padding:16px;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity 0.2s;letter-spacing:1px;}
 .btn-save:active{opacity:0.82;}
 .btn-save:disabled{background:var(--border);color:var(--muted);cursor:not-allowed;}
+.btn-secundario{width:100%;background:var(--rojo);color:var(--blanco);border:none;border-radius:12px;padding:13px;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;cursor:pointer;letter-spacing:0.5px;-webkit-tap-highlight-color:transparent;}
+.btn-secundario:active{opacity:0.85;}
+
+/* FORM GENÉRICO */
+.form-card{background:var(--blanco);border:2px solid var(--border);border-radius:14px;padding:14px;margin-bottom:16px;box-shadow:var(--shadow);}
+.form-card h3{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--azul);margin-bottom:10px;}
+.form-row{margin-bottom:10px;}
+.form-row label{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:4px;}
+.form-row input,.form-row select{width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:14px;color:var(--texto);background:var(--fondo);outline:none;-webkit-appearance:none;}
+.form-row input:focus,.form-row select:focus{border-color:var(--azul);}
+.moneda-toggle{display:flex;gap:6px;margin-bottom:8px;}
+.moneda-btn{flex:1;padding:7px;border:2px solid var(--border);border-radius:8px;background:var(--blanco);font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.moneda-btn.selected{background:var(--azul);color:var(--blanco);border-color:var(--azul);}
 
 /* HISTORIAL */
 .order-history-item{background:var(--blanco);border:2px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
@@ -86,8 +113,32 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 .pay-pos{background:#fef3e2;color:#b07d00;}
 .pay-ebs{background:#dcfce7;color:#166534;}
 .pay-ediv{background:#f3e8ff;color:#6b21a8;}
+.pay-mixto{background:#e0e7ff;color:#3730a3;}
 .order-history-products{font-size:12px;color:var(--muted);margin-bottom:6px;line-height:1.5;}
 .order-history-total{font-size:14px;font-weight:800;color:var(--rojo);}
+
+/* LISTAS gastos/facturas */
+.list-item{background:var(--blanco);border:2px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;}
+.list-item-info{flex:1;}
+.list-item-title{font-size:13px;font-weight:700;color:var(--texto);}
+.list-item-sub{font-size:11px;color:var(--muted);margin-top:2px;}
+.list-item-amount{font-size:14px;font-weight:800;color:var(--rojo);white-space:nowrap;text-align:right;}
+.list-item-del{background:none;border:none;color:#c0392b;font-size:10px;font-weight:700;cursor:pointer;padding:0;margin-top:6px;margin-right:10px;-webkit-tap-highlight-color:transparent;}
+.estado-tag{font-size:9px;font-weight:800;padding:2px 8px;border-radius:20px;margin-left:6px;}
+.estado-pendiente{background:#fef3e2;color:#b07d00;}
+.estado-pagada{background:#dcfce7;color:#166534;}
+
+/* EMPLEADOS */
+.emp-card{background:var(--blanco);border:2px solid var(--border);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:var(--shadow);}
+.emp-header{display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+.emp-nombre{font-size:15px;font-weight:800;color:var(--azul);}
+.emp-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.emp-detail{display:none;margin-top:14px;padding-top:14px;border-top:2px solid var(--fondo);}
+.emp-detail.show{display:block;}
+.emp-summary-row{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;}
+.emp-summary-row.total{border-top:2px solid var(--azul);margin-top:6px;padding-top:8px;font-weight:800;color:var(--azul);}
+.emp-actions{display:flex;gap:8px;margin-top:10px;}
+.emp-actions button{flex:1;padding:9px;border-radius:10px;border:2px solid var(--azul);background:var(--blanco);color:var(--azul);font-size:11px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;}
 
 /* RESUMEN */
 .summary-date{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--azul);margin-bottom:16px;text-transform:capitalize;}
@@ -97,12 +148,47 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 .summary-row:last-child{border:none;}
 .summary-row .val{font-weight:800;color:var(--rojo);}
 .summary-total-row{display:flex;justify-content:space-between;margin-top:12px;padding-top:10px;border-top:2px solid var(--azul);font-size:16px;font-weight:800;}
+.balance-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--fondo);font-size:13px;}
+.balance-row:last-child{border:none;}
+.balance-pos{color:#166534;font-weight:800;}
+.balance-neg{color:#c0392b;font-weight:800;}
 
 /* DATE */
 .date-select{display:flex;gap:8px;margin-bottom:14px;align-items:center;}
 .date-select input[type=date]{flex:1;border:2px solid var(--border);border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:13px;background:var(--blanco);color:var(--texto);outline:none;-webkit-appearance:none;}
 .date-select input:focus{border-color:var(--azul);}
 .btn-today{background:var(--azul);color:var(--blanco);border:none;border-radius:10px;padding:9px 14px;font-family:'Inter',sans-serif;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+
+/* TURNO */
+.turno-toggle{display:flex;gap:8px;margin-bottom:14px;}
+.turno-btn{flex:1;padding:10px;border:2px solid var(--border);border-radius:12px;background:var(--blanco);font-family:'Inter',sans-serif;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.turno-btn.selected{background:var(--azul);color:var(--blanco);border-color:var(--azul);}
+
+/* PENDIENTE DE PAGO */
+.pendiente-box{margin-top:14px;background:var(--blanco);border:2px dashed var(--border);border-radius:14px;padding:12px 14px;}
+.pendiente-box label{display:block;font-size:11px;color:var(--muted);font-weight:600;margin-bottom:8px;}
+.pendiente-box input{width:100%;border:2px solid var(--border);border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:14px;background:var(--fondo);outline:none;margin-bottom:8px;-webkit-appearance:none;}
+.pendiente-box input:focus{border-color:var(--azul);}
+.btn-pendiente{width:100%;background:var(--blanco);color:var(--azul);border:2px solid var(--azul);border-radius:12px;padding:11px;font-family:'Inter',sans-serif;font-size:13px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.btn-pendiente:disabled{border-color:var(--border);color:var(--muted);cursor:not-allowed;}
+
+/* CUENTAS ABIERTAS */
+.abierta-card{background:var(--blanco);border:2px solid var(--gold,var(--border));border-left:5px solid #b07d00;border-radius:12px;padding:12px 14px;margin-bottom:10px;}
+.abierta-ref{font-size:14px;font-weight:800;color:var(--azul);}
+.abierta-meta{font-size:11px;color:var(--muted);margin:2px 0 6px;}
+.btn-cobrar{background:var(--rojo);color:var(--blanco);border:none;border-radius:10px;padding:9px 14px;font-size:12px;font-weight:800;cursor:pointer;-webkit-tap-highlight-color:transparent;}
+.btn-cancelar-abierta{background:none;border:none;color:#c0392b;font-size:11px;font-weight:700;cursor:pointer;margin-left:10px;-webkit-tap-highlight-color:transparent;}
+.cobro-panel{margin-top:12px;padding-top:12px;border-top:2px solid var(--fondo);}
+
+/* CIERRE DE TURNO */
+.cierre-card{background:var(--blanco);border:2px solid var(--azul);border-radius:14px;padding:16px;margin-bottom:16px;box-shadow:var(--shadow);}
+.cierre-card h3{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1.5px;color:var(--azul);margin-bottom:10px;}
+.cierre-pasado{background:var(--fondo);border-radius:10px;padding:8px 10px;font-size:11px;color:var(--muted);margin-bottom:6px;}
+
+/* APERTURA DE CAJA */
+.apertura-row{display:flex;gap:8px;margin-bottom:8px;}
+.apertura-row input{flex:1;border:2px solid var(--border);border-radius:10px;padding:9px 12px;font-family:'Inter',sans-serif;font-size:14px;background:var(--fondo);outline:none;-webkit-appearance:none;}
+.apertura-row input:focus{border-color:var(--azul);}
 
 /* EMPTY */
 .empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:14px;}
@@ -116,20 +202,38 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 <body>
 <div class="app-header">
   <h1>GUA<span>YOYO</span></h1>
-  <span class="fecha" id="headerDate"></span>
+  <div>
+    <span class="fecha" id="headerDate"></span>
+    <div class="sync-badge" id="syncBadge"></div>
+  </div>
 </div>
 <div class="tabs">
   <button class="tab active" onclick="showPage('nuevo',this)">➕ Nuevo</button>
   <button class="tab" onclick="showPage('pedidos',this)">📋 Pedidos</button>
+  <button class="tab" onclick="showPage('abiertas',this)">🕓 Abiertas</button>
+  <button class="tab" onclick="showPage('gastos',this)">💸 Gastos</button>
+  <button class="tab" onclick="showPage('facturas',this)">🧾 Facturas</button>
+  <button class="tab" onclick="showPage('empleados',this)">👥 Equipo</button>
   <button class="tab" onclick="showPage('resumen',this)">📊 Resumen</button>
 </div>
 
 <!-- NUEVO PEDIDO -->
 <div class="page active" id="page-nuevo">
-  <div class="bcv-bar">
-    <label>💵 Tasa BCV</label>
-    <input type="number" id="tasaBCV" placeholder="0.00" inputmode="decimal" oninput="updateTotals()">
-    <div class="bcv-badge">Bs/USD</div>
+  <div class="turno-toggle">
+    <button class="turno-btn" id="turno-manana" onclick="setTurno('manana')">🌅 Turno Mañana</button>
+    <button class="turno-btn" id="turno-tarde" onclick="setTurno('tarde')">🌇 Turno Tarde</button>
+  </div>
+  <div class="tasas-bar">
+    <div class="tasa-row">
+      <label>💵 BCV USD</label>
+      <input type="number" id="tasaUSD" placeholder="0.00" inputmode="decimal" oninput="onTasaChange()">
+    </div>
+    <div class="tasa-row">
+      <label>💶 BCV EUR</label>
+      <input type="number" id="tasaEUR" placeholder="0.00" inputmode="decimal" oninput="onTasaChange()">
+    </div>
+    <button class="toggle-link" onclick="toggleHistorialTasas()" id="btnHistorialTasas" style="margin:0;">▸ ver tasas guardadas</button>
+    <div id="historialTasasBox" style="display:none;flex-direction:column;gap:2px;"></div>
   </div>
   <div class="order-summary" id="cartSummary" style="display:none;">
     <h3>🛒 Pedido actual</h3>
@@ -146,13 +250,26 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
   <div class="products-list" id="productsList"></div>
   <div style="margin-top:16px;">
     <div class="pay-label">Método de pago</div>
-    <div class="pay-methods">
+    <div class="pay-methods" id="payMethodsSimple">
       <button class="pay-btn" onclick="selectPay('PM')" id="pay-PM">📲 Pago Móvil</button>
       <button class="pay-btn" onclick="selectPay('POS')" id="pay-POS">💳 POS</button>
       <button class="pay-btn" onclick="selectPay('EBS')" id="pay-EBS">💵 Efectivo Bs</button>
       <button class="pay-btn" onclick="selectPay('EDIV')" id="pay-EDIV">💴 Efectivo Divisas</button>
     </div>
+    <button class="toggle-link" onclick="toggleSplitPay()" id="btnSplitToggle">➕ Dividir el pago entre varios métodos</button>
+    <div id="payMethodsSplit" style="display:none;margin-bottom:14px;">
+      <div class="split-row"><label>💴 Efectivo Divisas ($)</label><input type="number" inputmode="decimal" id="split-EDIV" placeholder="0.00" oninput="updateTotals()"></div>
+      <div class="split-row"><label>📲 Pago Móvil (Bs)</label><input type="number" inputmode="decimal" id="split-PM" placeholder="0" oninput="updateTotals()"></div>
+      <div class="split-row"><label>💳 POS (Bs)</label><input type="number" inputmode="decimal" id="split-POS" placeholder="0" oninput="updateTotals()"></div>
+      <div class="split-row"><label>💵 Efectivo Bs</label><input type="number" inputmode="decimal" id="split-EBS" placeholder="0" oninput="updateTotals()"></div>
+      <div class="split-status" id="splitStatus"></div>
+    </div>
     <button class="btn-save" id="btnGuardar" onclick="guardarPedido()" disabled>GUARDAR PEDIDO</button>
+    <div class="pendiente-box">
+      <label>¿El cliente paga después? Ponle una referencia y déjalo pendiente:</label>
+      <input type="text" id="pedidoReferencia" placeholder="Ej: Mesa 3, Juan...">
+      <button class="btn-pendiente" id="btnPendiente" onclick="dejarPendiente()" disabled>🕓 Dejar pendiente de pago</button>
+    </div>
   </div>
 </div>
 
@@ -165,12 +282,88 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
   <div id="pedidosList"></div>
 </div>
 
+<!-- CUENTAS ABIERTAS -->
+<div class="page" id="page-abiertas">
+  <input type="text" id="buscarAbierta" placeholder="🔍 Buscar por referencia..." oninput="renderAbiertas()" style="width:100%;border:2px solid var(--border);border-radius:10px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;background:var(--blanco);outline:none;margin-bottom:14px;-webkit-appearance:none;">
+  <div id="abiertasList"></div>
+</div>
+
+<!-- GASTOS -->
+<div class="page" id="page-gastos">
+  <div class="form-card">
+    <h3>💸 Nuevo gasto</h3>
+    <div class="form-row">
+      <label>Descripción</label>
+      <input type="text" id="gastoDesc" placeholder="Ej: Compra de insumos">
+    </div>
+    <div class="form-row">
+      <label>Monto</label>
+      <div class="moneda-toggle">
+        <button class="moneda-btn selected" id="gastoMon-USD" onclick="setGastoMoneda('USD')">$ Dólares</button>
+        <button class="moneda-btn" id="gastoMon-BS" onclick="setGastoMoneda('BS')">Bs Bolívares</button>
+      </div>
+      <input type="number" id="gastoMonto" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="form-row">
+      <label>Fecha</label>
+      <input type="date" id="gastoFecha">
+    </div>
+    <div class="form-row">
+      <label>Método de pago (de dónde sale)</label>
+      <div class="pay-methods" id="gastoPayMethods">
+        <button class="pay-btn" onclick="selectGastoPay('PM')" id="gastoPay-PM">📲 Pago Móvil</button>
+        <button class="pay-btn" onclick="selectGastoPay('POS')" id="gastoPay-POS">💳 POS</button>
+        <button class="pay-btn" onclick="selectGastoPay('EBS')" id="gastoPay-EBS">💵 Efectivo Bs</button>
+        <button class="pay-btn" onclick="selectGastoPay('EDIV')" id="gastoPay-EDIV">💴 Efectivo Divisas</button>
+      </div>
+    </div>
+    <button class="btn-secundario" onclick="agregarGasto()">+ Registrar gasto</button>
+  </div>
+  <div class="date-select">
+    <input type="date" id="gastosDate" onchange="renderGastos()">
+    <button class="btn-today" onclick="setTodayGastos()">Hoy</button>
+  </div>
+  <div id="gastosList"></div>
+</div>
+
+<!-- FACTURAS -->
+<div class="page" id="page-facturas">
+  <div class="form-card">
+    <h3>🧾 Nueva factura pendiente</h3>
+    <div class="form-row">
+      <label>Descripción</label>
+      <input type="text" id="facturaDesc" placeholder="Ej: Alquiler del local">
+    </div>
+    <div class="form-row">
+      <label>Monto ($)</label>
+      <input type="number" id="facturaMonto" placeholder="0.00" inputmode="decimal">
+    </div>
+    <div class="form-row">
+      <label>Fecha de pago</label>
+      <input type="date" id="facturaFecha">
+    </div>
+    <button class="btn-secundario" onclick="agregarFactura()">+ Registrar factura</button>
+  </div>
+  <div id="facturasPendientesList"></div>
+  <div style="margin-top:18px;">
+    <button class="toggle-link" onclick="toggleFacturasPagadas()" id="btnFacturasPagadas">▸ ver facturas pagadas</button>
+    <div id="facturasPagadasList" style="display:none;"></div>
+  </div>
+</div>
+
+<!-- EMPLEADOS -->
+<div class="page" id="page-empleados">
+  <div id="empleadosList"></div>
+</div>
+
 <!-- RESUMEN -->
 <div class="page" id="page-resumen">
   <div class="date-select">
     <input type="date" id="resumenDate" onchange="renderResumen()">
     <button class="btn-today" onclick="setTodayResumen()">Hoy</button>
   </div>
+  <div id="cajaAperturaBox"></div>
+  <div id="cierreTurnoBox"></div>
   <div id="resumenContent"></div>
 </div>
 
@@ -212,6 +405,12 @@ const MENU=[
   {cat:'Bebida',name:'Té frío',price:2.00},
   {cat:'Bebida',name:'Malta',price:1.00},
   {cat:'Bebida',name:'Yuky Pack',price:1.50},
+  {cat:'Bebida',name:'Gatorade',price:3.00},
+  {cat:'Bebida',name:'Agua mineral 600ml',price:1.50},
+  {cat:'Bebida',name:'Malta desechable',price:1.50},
+  {cat:'Bebida',name:'Lipton',price:2.50},
+  {cat:'Bebida',name:'Refresco 1.5 L',price:2.50},
+  {cat:'Bebida',name:'Refresco 1 L',price:2.00},
   {cat:'Café',name:'Espresso',price:1.00},
   {cat:'Café',name:'Americano',price:1.50},
   {cat:'Café',name:'Cappuccino',price:2.00},
@@ -221,26 +420,120 @@ const MENU=[
   {cat:'Combo',name:'Combo Futbolero (5 mini + malta/jugo)',price:3.50},
 ];
 const CATS=['Todos',...new Set(MENU.map(p=>p.cat))];
-const PAY_LABELS={PM:'Pago Móvil',POS:'POS/Tarjeta',EBS:'Efectivo Bs',EDIV:'Efectivo Divisas'};
-const PAY_CLASS={PM:'pay-pm',POS:'pay-pos',EBS:'pay-ebs',EDIV:'pay-ediv'};
-let cart={},selectedPay='',currentCat='Todos';
+const PAY_LABELS={PM:'Pago Móvil',POS:'POS/Tarjeta',EBS:'Efectivo Bs',EDIV:'Efectivo Divisas',MIXTO:'Pago mixto'};
+const PAY_CLASS={PM:'pay-pm',POS:'pay-pos',EBS:'pay-ebs',EDIV:'pay-ediv',MIXTO:'pay-mixto'};
+const MONEDA_METODO={PM:'BS',POS:'BS',EBS:'BS',EDIV:'USD'};
+
+let cart={},selectedPay='',currentCat='Todos',modoSplit=false;
+let gastoMoneda='USD',gastoPaySel='';
+let empleadoAbierto=null;
+let turnoActual = localStorage.getItem('guayoyo_turno_actual') || (new Date().getHours()<15?'manana':'tarde');
+let intervalSync=null;
+let cobroAbiertoId=null, modoSplitCobro=false;
+
+// Pega aquí la URL de tu Web App de Apps Script (termina en /exec).
+const APPS_SCRIPT_URL_GUAYOYO = 'https://script.google.com/macros/s/AKfycbxTppHklBf6BbBTdtccKDFSa4NR4lVGtTo5VxuPEaj2wH6XBS5rIhYEblw4lY3TMC-lQw/exec';
 
 function todayKey(){return new Date().toISOString().slice(0,10);}
-function getOrders(dk){try{const r=localStorage.getItem('guayoyo_'+dk);return r?JSON.parse(r):[]}catch(e){return[];}}
-function saveOrders(dk,o){localStorage.setItem('guayoyo_'+dk,JSON.stringify(o));}
+function uid(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);}
+function fmt$(n){return '$'+(n||0).toFixed(2);}
+function fmtBs(n){return 'Bs '+(n||0).toFixed(2);}
 
-window.onload=function(){
-  document.getElementById('headerDate').textContent=
-    new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
-  const cs=document.getElementById('catScroll');
-  CATS.forEach(cat=>{
-    const b=document.createElement('button');
-    b.className='cat-btn'+(cat==='Todos'?' active':'');
-    b.textContent=cat; b.onclick=()=>filterCat(cat);
-    cs.appendChild(b);
-  });
-  renderProducts();setTodayPedidos();setTodayResumen();
-};
+function cargarJSON(key){
+  try{const r=localStorage.getItem(key);return r?JSON.parse(r):[];}catch(e){return [];}
+}
+function guardarJSON(key,data){
+  try{localStorage.setItem(key,JSON.stringify(data));return true;}catch(e){console.warn('No se pudo guardar',key,e);return false;}
+}
+
+// ---------- Migración de pedidos antiguos (guardados por día) ----------
+function migrarPedidosAntiguos(){
+  if(localStorage.getItem('guayoyo_pedidos')) return;
+  const todos=[];
+  for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);
+    if(key && /^guayoyo_\d{4}-\d{2}-\d{2}$/.test(key)){
+      try{
+        const fecha=key.replace('guayoyo_','');
+        const ordenes=JSON.parse(localStorage.getItem(key))||[];
+        ordenes.forEach(o=>{ if(!o.fecha)o.fecha=fecha; if(!o.id)o.id=uid(); todos.push(o); });
+      }catch(e){}
+    }
+  }
+  guardarJSON('guayoyo_pedidos',todos);
+}
+
+function seedEmpleados(){
+  if(localStorage.getItem('guayoyo_empleados')) return;
+  guardarJSON('guayoyo_empleados',[
+    {id:uid(),nombre:'Empleado 1',turno:'Mañana 6:00 - 14:00',diaLibre:'Martes',salarioSemanalUSD:50},
+    {id:uid(),nombre:'Empleado 2',turno:'Tarde 12:00 - 20:00',diaLibre:'Martes',salarioSemanalUSD:50},
+  ]);
+}
+
+// ======================================================================
+// TASAS (USD y EUR, BCV) con historial
+// ======================================================================
+function guardarTasasDeHoy(){
+  const tasaUSD=parseFloat(document.getElementById('tasaUSD').value)||0;
+  const tasaEUR=parseFloat(document.getElementById('tasaEUR').value)||0;
+  if(!tasaUSD && !tasaEUR) return;
+  const historial=cargarJSON('guayoyo_tasas_historial');
+  const idx=historial.findIndex(r=>r.fecha===todayKey());
+  const registro={fecha:todayKey(),tasaUSD,tasaEUR};
+  if(idx>=0) historial[idx]=registro; else historial.push(registro);
+  guardarJSON('guayoyo_tasas_historial',historial);
+  renderHistorialTasas();
+  sincronizarEnNube('tasa',registro);
+}
+function onTasaChange(){ updateTotals(); guardarTasasDeHoy(); }
+function obtenerTasaFecha(fecha){
+  return cargarJSON('guayoyo_tasas_historial').find(r=>r.fecha===fecha) || null;
+}
+function prellenarTasas(){
+  const historial=cargarJSON('guayoyo_tasas_historial').slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  if(!historial.length) return;
+  document.getElementById('tasaUSD').value=historial[0].tasaUSD||'';
+  document.getElementById('tasaEUR').value=historial[0].tasaEUR||'';
+}
+function renderHistorialTasas(){
+  const historial=cargarJSON('guayoyo_tasas_historial').slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const box=document.getElementById('historialTasasBox');
+  const btn=document.getElementById('btnHistorialTasas');
+  const abierto=btn.textContent.trim().startsWith('▾');
+  btn.textContent=(abierto?'▾':'▸')+` ver tasas guardadas (${historial.length})`;
+  box.innerHTML=historial.length? historial.slice(0,30).map(r=>`
+    <div style="font-size:11px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--fondo);">
+      ${r.fecha}${r.fecha===todayKey()?' · HOY':''} — USD ${r.tasaUSD||'—'} · EUR ${r.tasaEUR||'—'}
+    </div>`).join('') : '<div style="font-size:11px;color:var(--muted);">Sin tasas guardadas.</div>';
+}
+function toggleHistorialTasas(){
+  const box=document.getElementById('historialTasasBox');
+  const abrir=box.style.display!=='flex';
+  box.style.display=abrir?'flex':'none';
+  renderHistorialTasas();
+}
+
+function setTurno(t){
+  turnoActual=t;
+  localStorage.setItem('guayoyo_turno_actual',t);
+  document.getElementById('turno-manana').classList.toggle('selected',t==='manana');
+  document.getElementById('turno-tarde').classList.toggle('selected',t==='tarde');
+}
+
+// ======================================================================
+// CARRITO / PEDIDOS
+// ======================================================================
+function getOrders(dk){ return cargarJSON('guayoyo_pedidos').filter(o=>o.fecha===dk); }
+function addOrderToStore(o){
+  const todos=cargarJSON('guayoyo_pedidos');
+  todos.push(o);
+  guardarJSON('guayoyo_pedidos',todos);
+}
+function pagosDe(o){
+  if(o.pagos && o.pagos.length) return o.pagos;
+  return [{metodo:o.pay,montoUSD:o.totalUSD,montoBs:o.totalBs}];
+}
 
 function filterCat(cat){
   currentCat=cat;
@@ -280,8 +573,30 @@ function changeQty(idx,delta){
   updateTotals();
 }
 
+function toggleSplitPay(){
+  modoSplit=!modoSplit;
+  document.getElementById('payMethodsSimple').style.display=modoSplit?'none':'grid';
+  document.getElementById('payMethodsSplit').style.display=modoSplit?'block':'none';
+  document.getElementById('btnSplitToggle').textContent=modoSplit?'← Volver a un solo método':'➕ Dividir el pago entre varios métodos';
+  if(!modoSplit){ selectedPay=''; document.querySelectorAll('#payMethodsSimple .pay-btn').forEach(b=>b.classList.remove('selected')); }
+  updateTotals();
+}
+
+function calcularAsignadoSplit(){
+  const tasa=parseFloat(document.getElementById('tasaUSD').value)||0;
+  let asignadoUSD=0; const pagos=[];
+  ['EDIV','PM','POS','EBS'].forEach(m=>{
+    const val=parseFloat(document.getElementById('split-'+m).value)||0;
+    if(val>0){
+      if(MONEDA_METODO[m]==='USD'){ pagos.push({metodo:m,montoUSD:val,montoBs:tasa>0?val*tasa:null}); asignadoUSD+=val; }
+      else { const usdEq=tasa>0?val/tasa:0; pagos.push({metodo:m,montoUSD:usdEq,montoBs:val}); asignadoUSD+=usdEq; }
+    }
+  });
+  return {pagos,asignadoUSD};
+}
+
 function updateTotals(){
-  const tasa=parseFloat(document.getElementById('tasaBCV').value)||0;
+  const tasa=parseFloat(document.getElementById('tasaUSD').value)||0;
   let totalUSD=0;const items=[];
   Object.entries(cart).forEach(([idx,qty])=>{
     const p=MENU[parseInt(idx)];totalUSD+=p.price*qty;
@@ -297,68 +612,654 @@ function updateTotals(){
     document.getElementById('cartTotalUSD').textContent=`$${totalUSD.toFixed(2)}`;
     document.getElementById('cartTotalBs').textContent=tasa>0?`Bs ${(totalUSD*tasa).toFixed(2)}`:'Ingresa tasa BCV';
   }
-  document.getElementById('btnGuardar').disabled=!(Object.keys(cart).length>0&&selectedPay!=='');
+
+  let listo=false;
+  if(modoSplit){
+    const {asignadoUSD}=calcularAsignadoSplit();
+    const status=document.getElementById('splitStatus');
+    if(items.length===0){ status.textContent=''; status.className='split-status'; }
+    else{
+      const diff=totalUSD-asignadoUSD;
+      if(Math.abs(diff)<0.01){ status.textContent=`✅ Cuadra: $${asignadoUSD.toFixed(2)}`; status.className='split-status ok'; listo=true; }
+      else if(diff>0){ status.textContent=`⚠️ Falta asignar $${diff.toFixed(2)}`; status.className='split-status warn'; }
+      else{ status.textContent=`⚠️ Sobran $${Math.abs(diff).toFixed(2)} asignados`; status.className='split-status warn'; }
+    }
+  } else {
+    listo = selectedPay!=='';
+  }
+  document.getElementById('btnGuardar').disabled=!(Object.keys(cart).length>0 && listo);
+  document.getElementById('btnPendiente').disabled = Object.keys(cart).length===0;
 }
 
 function selectPay(m){
   selectedPay=m;
-  document.querySelectorAll('.pay-btn').forEach(b=>b.classList.remove('selected'));
+  document.querySelectorAll('#payMethodsSimple .pay-btn').forEach(b=>b.classList.remove('selected'));
   document.getElementById('pay-'+m).classList.add('selected');
   updateTotals();
 }
 
 function guardarPedido(){
-  const tasa=parseFloat(document.getElementById('tasaBCV').value)||0;
+  const tasa=parseFloat(document.getElementById('tasaUSD').value)||0;
   const dk=todayKey();const orders=getOrders(dk);const num=orders.length+1;
   let totalUSD=0;const items=[];
   Object.entries(cart).forEach(([idx,qty])=>{
     const p=MENU[parseInt(idx)];totalUSD+=p.price*qty;
     items.push({name:p.name,qty,price:p.price,subtotal:p.price*qty});
   });
-  orders.push({num,time:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
-    items,totalUSD,totalBs:tasa>0?totalUSD*tasa:null,tasa,pay:selectedPay});
-  saveOrders(dk,orders);
+
+  let pagos;
+  if(modoSplit){
+    pagos=calcularAsignadoSplit().pagos;
+    if(!pagos.length){ alert('Asigna al menos un método de pago.'); return; }
+  } else {
+    pagos=[{metodo:selectedPay,montoUSD:totalUSD,montoBs:tasa>0?totalUSD*tasa:null}];
+  }
+
+  const horaAhora=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  const nuevoPedido={
+    id:uid(),num,fecha:dk,time:horaAhora,horaPago:horaAhora,
+    items,totalUSD,totalBs:tasa>0?totalUSD*tasa:null,tasa,
+    pay: pagos.length===1?pagos[0].metodo:'MIXTO',
+    pagos, estado:'pagado', turno:turnoActual, referencia:''
+  };
+  addOrderToStore(nuevoPedido);
+  sincronizarEnNube('pedido',nuevoPedido);
+
+  limpiarFormularioPedido();
+  showToast(`✅ Pedido #${num} guardado`);
+}
+
+function limpiarFormularioPedido(){
   cart={};selectedPay='';
+  if(modoSplit) toggleSplitPay();
+  ['EDIV','PM','POS','EBS'].forEach(m=>{ const el=document.getElementById('split-'+m); if(el)el.value=''; });
   document.querySelectorAll('.pay-btn').forEach(b=>b.classList.remove('selected'));
   document.querySelectorAll('.qty-num').forEach(el=>el.textContent='0');
   document.querySelectorAll('.product-card').forEach(c=>c.classList.remove('has-qty'));
   document.getElementById('cartSummary').style.display='none';
   document.getElementById('btnGuardar').disabled=true;
-  showToast(`✅ Pedido #${num} guardado`);
+  document.getElementById('pedidoReferencia').value='';
+  document.getElementById('btnPendiente').disabled=true;
+}
+
+function dejarPendiente(){
+  const tasa=parseFloat(document.getElementById('tasaUSD').value)||0;
+  const dk=todayKey();const orders=getOrders(dk);const num=orders.length+1;
+  let totalUSD=0;const items=[];
+  Object.entries(cart).forEach(([idx,qty])=>{
+    const p=MENU[parseInt(idx)];totalUSD+=p.price*qty;
+    items.push({name:p.name,qty,price:p.price,subtotal:p.price*qty});
+  });
+  if(!items.length){ alert('Agrega productos primero.'); return; }
+  const referencia=document.getElementById('pedidoReferencia').value.trim() || `Pedido #${num}`;
+
+  const nuevoPedido={
+    id:uid(),num,fecha:dk,
+    time:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+    horaPago:null,
+    items,totalUSD,totalBs:tasa>0?totalUSD*tasa:null,tasa,
+    pay:null,pagos:[],estado:'abierto',turno:turnoActual,referencia
+  };
+  addOrderToStore(nuevoPedido);
+  sincronizarEnNube('pedido',nuevoPedido);
+
+  limpiarFormularioPedido();
+  showToast(`🕓 "${referencia}" quedó pendiente de pago`);
 }
 
 function setTodayPedidos(){document.getElementById('pedidosDate').value=todayKey();renderPedidos();}
 function setTodayResumen(){document.getElementById('resumenDate').value=todayKey();renderResumen();}
+function setTodayGastos(){document.getElementById('gastosDate').value=todayKey();renderGastos();}
 
 function renderPedidos(){
   const dk=document.getElementById('pedidosDate').value;
   const orders=getOrders(dk);const list=document.getElementById('pedidosList');
   if(!orders.length){list.innerHTML=`<div class="empty"><div class="empty-icon">📋</div>Sin pedidos este día</div>`;return;}
-  list.innerHTML=[...orders].reverse().map(o=>`
+  list.innerHTML=[...orders].reverse().map(o=>{
+    if(o.estado==='abierto'){
+      return `
+      <div class="order-history-item" style="border-left:5px solid #b07d00;">
+        <div class="order-history-header">
+          <span class="order-num">Pedido #${o.num} · ${o.time}</span>
+          <span class="estado-tag estado-pendiente">🕓 pendiente — ${o.referencia}</span>
+        </div>
+        <div class="order-history-products">${o.items.map(i=>`${i.qty}× ${i.name}`).join(' · ')}</div>
+        <div class="order-history-total">$${o.totalUSD.toFixed(2)} USD</div>
+      </div>`;
+    }
+    const pagos=pagosDe(o);
+    const payTag = pagos.length>1
+      ? `<span class="order-pay-tag pay-mixto">Mixto</span>`
+      : `<span class="order-pay-tag ${PAY_CLASS[pagos[0].metodo]}">${PAY_LABELS[pagos[0].metodo]}</span>`;
+    const detallePagos = pagos.length>1
+      ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">${pagos.map(p=>`${PAY_LABELS[p.metodo]}: $${(p.montoUSD||0).toFixed(2)}`).join(' · ')}</div>`
+      : '';
+    return `
     <div class="order-history-item">
       <div class="order-history-header">
         <span class="order-num">Pedido #${o.num} · ${o.time}</span>
-        <span class="order-pay-tag ${PAY_CLASS[o.pay]}">${PAY_LABELS[o.pay]}</span>
+        ${payTag}
       </div>
       <div class="order-history-products">${o.items.map(i=>`${i.qty}× ${i.name}`).join(' · ')}</div>
       <div class="order-history-total">$${o.totalUSD.toFixed(2)} USD${o.totalBs?` &nbsp;<span style="font-size:12px;color:var(--muted);font-weight:500;">Bs ${o.totalBs.toFixed(2)}</span>`:''}</div>
+      ${detallePagos}
+    </div>`;
+  }).join('');
+}
+
+// ======================================================================
+// CUENTAS ABIERTAS (pedidos que se pagan después)
+// ======================================================================
+function getAbiertos(){
+  return cargarJSON('guayoyo_pedidos').filter(o=>o.estado==='abierto')
+    .sort((a,b)=> (a.fecha+a.time).localeCompare(b.fecha+b.time));
+}
+
+function renderAbiertas(){
+  const filtro=(document.getElementById('buscarAbierta').value||'').toLowerCase();
+  const abiertos=getAbiertos().filter(o=>o.referencia.toLowerCase().includes(filtro));
+  const list=document.getElementById('abiertasList');
+  if(!abiertos.length){ list.innerHTML=`<div class="empty"><div class="empty-icon">🕓</div>No hay cuentas pendientes de pago</div>`; return; }
+  list.innerHTML=abiertos.map(o=>`
+    <div class="abierta-card">
+      <div class="abierta-ref">${o.referencia}</div>
+      <div class="abierta-meta">${o.fecha} · ${o.time} · $${o.totalUSD.toFixed(2)}${o.totalBs?` (Bs ${o.totalBs.toFixed(2)})`:''}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">${o.items.map(i=>`${i.qty}× ${i.name}`).join(' · ')}</div>
+      <button class="btn-cobrar" onclick="abrirCobro('${o.id}')">💰 Cobrar</button>
+      <button class="btn-cancelar-abierta" onclick="cancelarAbierta('${o.id}')">cancelar pedido</button>
+      <div id="cobro-panel-${o.id}"></div>
     </div>`).join('');
+}
+
+function cancelarAbierta(id){
+  if(!confirm('¿Cancelar este pedido pendiente? No se podrá deshacer.')) return;
+  let todos=cargarJSON('guayoyo_pedidos');
+  todos=todos.filter(o=>o.id!==id);
+  guardarJSON('guayoyo_pedidos',todos);
+  eliminarEnNube('pedido',id);
+  renderAbiertas();
+  showToast('Pedido cancelado');
+}
+
+function abrirCobro(id){
+  cobroAbiertoId = (cobroAbiertoId===id) ? null : id;
+  modoSplitCobro=false;
+  renderAbiertas();
+  if(!cobroAbiertoId) return;
+  const panel=document.getElementById('cobro-panel-'+id);
+  if(!panel) return;
+  panel.innerHTML=`
+    <div class="cobro-panel">
+      <div class="pay-methods">
+        <button class="pay-btn" onclick="confirmarCobroSimple('${id}','PM')">📲 Pago Móvil</button>
+        <button class="pay-btn" onclick="confirmarCobroSimple('${id}','POS')">💳 POS</button>
+        <button class="pay-btn" onclick="confirmarCobroSimple('${id}','EBS')">💵 Efectivo Bs</button>
+        <button class="pay-btn" onclick="confirmarCobroSimple('${id}','EDIV')">💴 Efectivo Divisas</button>
+      </div>
+      <button class="toggle-link" onclick="toggleSplitCobro('${id}')" style="margin:0 0 10px;">➕ Dividir el pago</button>
+      <div id="cobro-split-${id}" style="display:none;">
+        <div class="split-row"><label>💴 Divisas ($)</label><input type="number" inputmode="decimal" id="cobro-split-EDIV-${id}" placeholder="0.00"></div>
+        <div class="split-row"><label>📲 Pago Móvil (Bs)</label><input type="number" inputmode="decimal" id="cobro-split-PM-${id}" placeholder="0"></div>
+        <div class="split-row"><label>💳 POS (Bs)</label><input type="number" inputmode="decimal" id="cobro-split-POS-${id}" placeholder="0"></div>
+        <div class="split-row"><label>💵 Efectivo Bs</label><input type="number" inputmode="decimal" id="cobro-split-EBS-${id}" placeholder="0"></div>
+        <button class="btn-secundario" onclick="confirmarCobroSplit('${id}')">Confirmar cobro dividido</button>
+      </div>
+    </div>`;
+}
+
+function toggleSplitCobro(id){
+  const box=document.getElementById('cobro-split-'+id);
+  box.style.display = box.style.display==='block' ? 'none' : 'block';
+}
+
+function completarPago(id,pagos){
+  const todos=cargarJSON('guayoyo_pedidos');
+  const o=todos.find(x=>x.id===id);
+  if(!o) return;
+  o.estado='pagado';
+  o.pagos=pagos;
+  o.pay=pagos.length===1?pagos[0].metodo:'MIXTO';
+  o.horaPago=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  guardarJSON('guayoyo_pedidos',todos);
+  sincronizarEnNube('pedido',o);
+  cobroAbiertoId=null;
+  renderAbiertas();
+  showToast(`✅ "${o.referencia}" cobrado`);
+}
+
+function confirmarCobroSimple(id,metodo){
+  const todos=cargarJSON('guayoyo_pedidos');
+  const o=todos.find(x=>x.id===id);
+  if(!o) return;
+  const tasa=o.tasa || (obtenerTasaFecha(todayKey())?.tasaUSD) || 0;
+  completarPago(id,[{metodo,montoUSD:o.totalUSD,montoBs:tasa>0?o.totalUSD*tasa:null}]);
+}
+
+function confirmarCobroSplit(id){
+  const todos=cargarJSON('guayoyo_pedidos');
+  const o=todos.find(x=>x.id===id);
+  if(!o) return;
+  const tasa=o.tasa || (obtenerTasaFecha(todayKey())?.tasaUSD) || 0;
+  let asignadoUSD=0; const pagos=[];
+  ['EDIV','PM','POS','EBS'].forEach(m=>{
+    const el=document.getElementById(`cobro-split-${m}-${id}`);
+    const val=parseFloat(el?el.value:0)||0;
+    if(val>0){
+      if(MONEDA_METODO[m]==='USD'){ pagos.push({metodo:m,montoUSD:val,montoBs:tasa>0?val*tasa:null}); asignadoUSD+=val; }
+      else { const usdEq=tasa>0?val/tasa:0; pagos.push({metodo:m,montoUSD:usdEq,montoBs:val}); asignadoUSD+=usdEq; }
+    }
+  });
+  if(!pagos.length){ alert('Asigna al menos un método.'); return; }
+  if(Math.abs(asignadoUSD-o.totalUSD)>0.05){
+    if(!confirm(`Lo asignado ($${asignadoUSD.toFixed(2)}) no coincide exactamente con el total ($${o.totalUSD.toFixed(2)}). ¿Guardar de todas formas?`)) return;
+  }
+  completarPago(id,pagos);
+}
+
+// ======================================================================
+// GASTOS
+// ======================================================================
+function setGastoMoneda(m){
+  gastoMoneda=m;
+  document.getElementById('gastoMon-USD').classList.toggle('selected',m==='USD');
+  document.getElementById('gastoMon-BS').classList.toggle('selected',m==='BS');
+}
+function selectGastoPay(m){
+  gastoPaySel=m;
+  document.querySelectorAll('#gastoPayMethods .pay-btn').forEach(b=>b.classList.remove('selected'));
+  document.getElementById('gastoPay-'+m).classList.add('selected');
+}
+function agregarGasto(){
+  const desc=document.getElementById('gastoDesc').value.trim();
+  const montoInput=parseFloat(document.getElementById('gastoMonto').value);
+  const fecha=document.getElementById('gastoFecha').value || todayKey();
+  if(!desc){ alert('Escribe una descripción.'); return; }
+  if(isNaN(montoInput)||montoInput<=0){ alert('Ingresa un monto válido.'); return; }
+  if(!gastoPaySel){ alert('Selecciona el método de pago.'); return; }
+
+  const tasaInfo = obtenerTasaFecha(fecha) || obtenerTasaFecha(todayKey());
+  const tasa = tasaInfo ? tasaInfo.tasaUSD : (parseFloat(document.getElementById('tasaUSD').value)||0);
+
+  let montoUSD,montoBs;
+  if(gastoMoneda==='USD'){ montoUSD=montoInput; montoBs=tasa>0?montoInput*tasa:null; }
+  else { montoBs=montoInput; montoUSD=tasa>0?montoInput/tasa:null; }
+
+  const gasto={id:uid(),fecha,descripcion:desc,montoUSD,montoBs,metodo:gastoPaySel,moneda:gastoMoneda};
+  const gastos=cargarJSON('guayoyo_gastos');
+  gastos.push(gasto);
+  guardarJSON('guayoyo_gastos',gastos);
+  sincronizarEnNube('gasto',gasto);
+
+  document.getElementById('gastoDesc').value='';
+  document.getElementById('gastoMonto').value='';
+  gastoPaySel='';
+  document.querySelectorAll('#gastoPayMethods .pay-btn').forEach(b=>b.classList.remove('selected'));
+  renderGastos();
+  showToast('✅ Gasto registrado');
+}
+function eliminarGasto(id){
+  let gastos=cargarJSON('guayoyo_gastos');
+  gastos=gastos.filter(g=>g.id!==id);
+  guardarJSON('guayoyo_gastos',gastos);
+  eliminarEnNube('gasto',id);
+  renderGastos();
+}
+function renderGastos(){
+  const dk=document.getElementById('gastosDate').value;
+  const gastos=cargarJSON('guayoyo_gastos').filter(g=>g.fecha===dk).sort((a,b)=>b.id.localeCompare(a.id));
+  const list=document.getElementById('gastosList');
+  if(!gastos.length){ list.innerHTML=`<div class="empty"><div class="empty-icon">💸</div>Sin gastos este día</div>`; return; }
+  list.innerHTML=gastos.map(g=>`
+    <div class="list-item">
+      <div class="list-item-info">
+        <div class="list-item-title">${g.descripcion}</div>
+        <div class="list-item-sub"><span class="order-pay-tag ${PAY_CLASS[g.metodo]}">${PAY_LABELS[g.metodo]}</span></div>
+        <button class="list-item-del" onclick="eliminarGasto('${g.id}')">eliminar</button>
+      </div>
+      <div class="list-item-amount">${fmt$(g.montoUSD)}${g.montoBs?`<div style="font-size:10px;color:var(--muted);font-weight:500;">${fmtBs(g.montoBs)}</div>`:''}</div>
+    </div>`).join('');
+}
+
+// ======================================================================
+// FACTURAS PENDIENTES
+// ======================================================================
+function agregarFactura(){
+  const desc=document.getElementById('facturaDesc').value.trim();
+  const monto=parseFloat(document.getElementById('facturaMonto').value);
+  const fechaPago=document.getElementById('facturaFecha').value;
+  if(!desc){ alert('Escribe una descripción.'); return; }
+  if(isNaN(monto)||monto<=0){ alert('Ingresa un monto válido.'); return; }
+  if(!fechaPago){ alert('Selecciona la fecha de pago.'); return; }
+
+  const factura={id:uid(),descripcion:desc,montoUSD:monto,fechaPago,estado:'pendiente',fechaPagada:null,montoBs:null,metodoPago:null,tasaUsada:null};
+  const facturas=cargarJSON('guayoyo_facturas');
+  facturas.push(factura);
+  guardarJSON('guayoyo_facturas',facturas);
+  sincronizarEnNube('factura',factura);
+
+  document.getElementById('facturaDesc').value='';
+  document.getElementById('facturaMonto').value='';
+  document.getElementById('facturaFecha').value='';
+  renderFacturas();
+  showToast('✅ Factura registrada');
+}
+
+function marcarFacturaPagada(id){
+  const facturas=cargarJSON('guayoyo_facturas');
+  const f=facturas.find(x=>x.id===id);
+  if(!f) return;
+
+  const metodoStr=prompt('¿Con qué método se pagó? Escribe: PM, POS, EBS o EDIV','EBS');
+  if(!metodoStr || !PAY_LABELS[metodoStr.toUpperCase()] || metodoStr.toUpperCase()==='MIXTO'){ alert('Método no válido.'); return; }
+  const m=metodoStr.toUpperCase();
+
+  const hoy=todayKey();
+  let tasaInfo=obtenerTasaFecha(hoy);
+  let tasaUSD;
+  if(tasaInfo && tasaInfo.tasaUSD){ tasaUSD=tasaInfo.tasaUSD; }
+  else {
+    const manual=parseFloat(prompt('No tengo la tasa BCV de hoy guardada. Ingrésala:',''));
+    if(isNaN(manual)||manual<=0){ alert('Tasa no válida, se canceló.'); return; }
+    tasaUSD=manual;
+    const historial=cargarJSON('guayoyo_tasas_historial');
+    const idx=historial.findIndex(r=>r.fecha===hoy);
+    const registro={fecha:hoy,tasaUSD,tasaEUR:(idx>=0?historial[idx].tasaEUR:0)};
+    if(idx>=0) historial[idx]=registro; else historial.push(registro);
+    guardarJSON('guayoyo_tasas_historial',historial);
+    sincronizarEnNube('tasa',registro);
+  }
+
+  f.estado='pagada'; f.fechaPagada=hoy; f.metodoPago=m; f.tasaUsada=tasaUSD; f.montoBs=f.montoUSD*tasaUSD;
+  guardarJSON('guayoyo_facturas',facturas);
+  sincronizarEnNube('factura',f);
+  renderFacturas();
+  showToast('✅ Factura marcada como pagada');
+}
+
+function eliminarFactura(id){
+  let facturas=cargarJSON('guayoyo_facturas');
+  facturas=facturas.filter(f=>f.id!==id);
+  guardarJSON('guayoyo_facturas',facturas);
+  eliminarEnNube('factura',id);
+  renderFacturas();
+}
+function toggleFacturasPagadas(){
+  const box=document.getElementById('facturasPagadasList');
+  const abrir=box.style.display!=='block';
+  box.style.display=abrir?'block':'none';
+  renderFacturas();
+}
+
+function renderFacturas(){
+  const todas=cargarJSON('guayoyo_facturas');
+  const pendientes=todas.filter(f=>f.estado==='pendiente').sort((a,b)=>a.fechaPago.localeCompare(b.fechaPago));
+  const pagadas=todas.filter(f=>f.estado==='pagada').sort((a,b)=>(b.fechaPagada||'').localeCompare(a.fechaPagada||''));
+
+  const listP=document.getElementById('facturasPendientesList');
+  listP.innerHTML = pendientes.length ? pendientes.map(f=>`
+    <div class="list-item">
+      <div class="list-item-info">
+        <div class="list-item-title">${f.descripcion}<span class="estado-tag estado-pendiente">pendiente</span></div>
+        <div class="list-item-sub">Pagar el ${f.fechaPago}</div>
+        <button class="list-item-del" onclick="eliminarFactura('${f.id}')">eliminar</button>
+        <button class="list-item-del" style="color:var(--azul);" onclick="marcarFacturaPagada('${f.id}')">marcar pagada</button>
+      </div>
+      <div class="list-item-amount">${fmt$(f.montoUSD)}</div>
+    </div>`).join('') : '<div class="empty"><div class="empty-icon">🧾</div>Sin facturas pendientes</div>';
+
+  const btn=document.getElementById('btnFacturasPagadas');
+  const abierto=btn.textContent.trim().startsWith('▾');
+  btn.textContent=(abierto?'▾':'▸')+` ver facturas pagadas (${pagadas.length})`;
+  const listG=document.getElementById('facturasPagadasList');
+  listG.innerHTML = pagadas.length ? pagadas.map(f=>`
+    <div class="list-item">
+      <div class="list-item-info">
+        <div class="list-item-title">${f.descripcion}<span class="estado-tag estado-pagada">pagada</span></div>
+        <div class="list-item-sub">${f.fechaPagada} · ${PAY_LABELS[f.metodoPago]} · tasa ${f.tasaUsada}</div>
+      </div>
+      <div class="list-item-amount">${fmt$(f.montoUSD)}<div style="font-size:10px;color:var(--muted);font-weight:500;">${fmtBs(f.montoBs)}</div></div>
+    </div>`).join('') : '<div class="empty"><div class="empty-icon">🧾</div>Sin facturas pagadas</div>';
+}
+
+// ======================================================================
+// EMPLEADOS / NÓMINA
+// ======================================================================
+function semanaActual(){
+  const hoy=new Date();
+  const dow=hoy.getDay();
+  const diffLunes = dow===0 ? -6 : 1-dow;
+  const lunes=new Date(hoy); lunes.setDate(hoy.getDate()+diffLunes);
+  const domingo=new Date(lunes); domingo.setDate(lunes.getDate()+6);
+  const f=d=>d.toISOString().slice(0,10);
+  return {desde:f(lunes),hasta:f(domingo)};
+}
+
+function calcularNetoSemana(empId,desde,hasta){
+  const movs=cargarJSON('guayoyo_movimientos_empleado').filter(m=>m.empleadoId===empId && m.fecha>=desde && m.fecha<=hasta);
+  const adelantosBs = movs.filter(m=>m.tipo==='adelanto').reduce((s,m)=>s+(m.montoBs||0),0);
+  const consumosUSD = movs.filter(m=>m.tipo==='consumo').reduce((s,m)=>s+(m.montoUSD||0),0);
+  const empleados=cargarJSON('guayoyo_empleados');
+  const emp=empleados.find(e=>e.id===empId);
+  const salarioUSD = emp?emp.salarioSemanalUSD:0;
+  const historialOrdenado=cargarJSON('guayoyo_tasas_historial').slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const tasaInfo = obtenerTasaFecha(hasta) || historialOrdenado[0];
+  const tasaEUR = tasaInfo ? tasaInfo.tasaEUR : 0;
+  const tasaUSDRef = tasaInfo ? tasaInfo.tasaUSD : 0;
+  const salarioBs = tasaEUR ? salarioUSD*tasaEUR : 0;
+  const consumosBs = tasaUSDRef ? consumosUSD*tasaUSDRef : 0;
+  const netoBs = salarioBs - adelantosBs - consumosBs;
+  return {salarioBs,adelantosBs,consumosUSD,consumosBs,netoBs,tasaEUR};
+}
+
+function renderEmpleados(){
+  const empleados=cargarJSON('guayoyo_empleados');
+  const list=document.getElementById('empleadosList');
+  const semana=semanaActual();
+  list.innerHTML=empleados.map(e=>{
+    const abierto=empleadoAbierto===e.id;
+    const r=calcularNetoSemana(e.id,semana.desde,semana.hasta);
+    return `
+    <div class="emp-card">
+      <div class="emp-header" onclick="toggleEmpleado('${e.id}')">
+        <div>
+          <div class="emp-nombre">${e.nombre}</div>
+          <div class="emp-meta">${e.turno} · Libre: ${e.diaLibre} · $${e.salarioSemanalUSD}/semana</div>
+        </div>
+        <div style="font-size:18px;color:var(--azul);">${abierto?'▾':'▸'}</div>
+      </div>
+      <div class="emp-detail${abierto?' show':''}" id="emp-detail-${e.id}">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Semana ${semana.desde} al ${semana.hasta}</div>
+        <div class="emp-summary-row"><span>Salario (tasa EUR BCV)</span><span>${r.tasaEUR?fmtBs(r.salarioBs):'falta tasa EUR'}</span></div>
+        <div class="emp-summary-row"><span>− Adelantos</span><span>${fmtBs(r.adelantosBs)}</span></div>
+        <div class="emp-summary-row"><span>− Consumos</span><span>${fmt$(r.consumosUSD)}</span></div>
+        <div class="emp-summary-row total"><span>Neto a pagar</span><span>${r.tasaEUR?fmtBs(r.netoBs):'—'}</span></div>
+        <div class="emp-actions">
+          <button onclick="event.stopPropagation();abrirAdelanto('${e.id}')">+ Adelanto</button>
+          <button onclick="event.stopPropagation();abrirConsumo('${e.id}')">+ Consumo</button>
+        </div>
+        <div id="emp-movs-${e.id}" style="margin-top:10px;"></div>
+      </div>
+    </div>`;
+  }).join('');
+  if(empleadoAbierto) renderMovimientosEmpleado(empleadoAbierto,semana);
+}
+
+function toggleEmpleado(id){
+  empleadoAbierto = empleadoAbierto===id ? null : id;
+  renderEmpleados();
+}
+
+function renderMovimientosEmpleado(empId,semana){
+  const movs=cargarJSON('guayoyo_movimientos_empleado').filter(m=>m.empleadoId===empId && m.fecha>=semana.desde && m.fecha<=semana.hasta).sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const el=document.getElementById('emp-movs-'+empId);
+  if(!el) return;
+  if(!movs.length){ el.innerHTML='<div style="font-size:11px;color:var(--muted);">Sin movimientos esta semana.</div>'; return; }
+  el.innerHTML = movs.map(m=>`
+    <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--fondo);">
+      <span>${m.fecha} · ${m.tipo==='adelanto'?'Adelanto':'Consumo'}${m.descripcion?': '+m.descripcion:''}</span>
+      <span style="font-weight:700;">${m.tipo==='adelanto'?fmtBs(m.montoBs):fmt$(m.montoUSD)}</span>
+    </div>`).join('');
+}
+
+function abrirAdelanto(empId){
+  const montoStr=prompt('Monto del adelanto en $ (se convierte a Bs con la tasa USD de hoy):','');
+  const monto=parseFloat(montoStr);
+  if(isNaN(monto)||monto<=0) return;
+  const metodoStr=prompt('¿De qué método sale? Escribe: PM, POS, EBS o EDIV','EBS');
+  if(!metodoStr||!PAY_LABELS[metodoStr.toUpperCase()]||metodoStr.toUpperCase()==='MIXTO'){ alert('Método no válido.'); return; }
+  const m=metodoStr.toUpperCase();
+  const tasaHoy=obtenerTasaFecha(todayKey());
+  const tasa=parseFloat(document.getElementById('tasaUSD').value) || (tasaHoy?tasaHoy.tasaUSD:0) || 0;
+  const mov={id:uid(),empleadoId:empId,fecha:todayKey(),tipo:'adelanto',montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:m,descripcion:''};
+  const movs=cargarJSON('guayoyo_movimientos_empleado');
+  movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
+  sincronizarEnNube('movimiento',mov);
+  renderEmpleados();
+  showToast('✅ Adelanto registrado');
+}
+
+function abrirConsumo(empId){
+  const montoStr=prompt('Monto consumido en $ (productos de la carta):','');
+  const monto=parseFloat(montoStr);
+  if(isNaN(monto)||monto<=0) return;
+  const desc=prompt('¿Qué consumió? (opcional)','')||'';
+  const mov={id:uid(),empleadoId:empId,fecha:todayKey(),tipo:'consumo',montoUSD:monto,montoBs:null,metodo:null,descripcion:desc};
+  const movs=cargarJSON('guayoyo_movimientos_empleado');
+  movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
+  sincronizarEnNube('movimiento',mov);
+  renderEmpleados();
+  showToast('✅ Consumo registrado');
+}
+
+// ======================================================================
+// APERTURA DE CAJA (fondo inicial diario, solo efectivo)
+// ======================================================================
+function obtenerAperturaFecha(fecha){
+  return cargarJSON('guayoyo_caja_apertura').find(a=>a.fecha===fecha) || {fecha,aperturaBs:0,aperturaUSD:0};
+}
+function guardarAperturaCaja(){
+  const dk=document.getElementById('resumenDate').value;
+  const aperturaBs=parseFloat(document.getElementById('aperturaBsInput').value)||0;
+  const aperturaUSD=parseFloat(document.getElementById('aperturaUSDInput').value)||0;
+  const lista=cargarJSON('guayoyo_caja_apertura');
+  const idx=lista.findIndex(a=>a.fecha===dk);
+  const registro={fecha:dk,aperturaBs,aperturaUSD};
+  if(idx>=0) lista[idx]=registro; else lista.push(registro);
+  guardarJSON('guayoyo_caja_apertura',lista);
+  sincronizarEnNube('apertura',registro);
+  showToast('✅ Fondo de caja guardado');
+  renderResumen();
+}
+function renderAperturaCaja(){
+  const dk=document.getElementById('resumenDate').value;
+  const a=obtenerAperturaFecha(dk);
+  const box=document.getElementById('cajaAperturaBox');
+  box.innerHTML=`
+    <div class="cierre-card">
+      <h3>🔓 Fondo de caja del día (efectivo)</h3>
+      <div class="apertura-row">
+        <input type="number" id="aperturaBsInput" inputmode="decimal" placeholder="Bs inicial" value="${a.aperturaBs||''}">
+        <input type="number" id="aperturaUSDInput" inputmode="decimal" placeholder="$ inicial" value="${a.aperturaUSD||''}">
+      </div>
+      <button class="btn-secundario" onclick="guardarAperturaCaja()">Guardar fondo de caja</button>
+    </div>`;
+}
+
+// ======================================================================
+// CIERRE DE TURNO
+// ======================================================================
+function ultimoCierreHoraHoy(dk){
+  const cierres=cargarJSON('guayoyo_cierres').filter(c=>c.fecha===dk).sort((a,b)=>b.horaCierre.localeCompare(a.horaCierre));
+  return cierres.length ? cierres[0].horaCierre : null;
+}
+function pedidosPendientesDeCierre(dk){
+  const desde=ultimoCierreHoraHoy(dk);
+  return getOrders(dk).filter(o=>o.estado==='pagado' && (!desde || (o.horaPago||o.time) > desde));
+}
+function cerrarTurno(){
+  const dk=document.getElementById('resumenDate').value;
+  const pendientes=pedidosPendientesDeCierre(dk);
+  if(!pendientes.length){ alert('No hay ventas pagadas pendientes de cierre en este rango.'); return; }
+  const porMetodo={PM:0,POS:0,EBS:0,EDIV:0};
+  let totalUSD=0,totalBs=0;
+  pendientes.forEach(o=>{
+    totalUSD+=o.totalUSD; totalBs+=o.totalBs||0;
+    pagosDe(o).forEach(p=>{ if(porMetodo[p.metodo]!==undefined) porMetodo[p.metodo]+=(p.montoUSD||0); });
+  });
+  if(!confirm(`Cerrar turno ${turnoActual==='manana'?'Mañana':'Tarde'} con ${pendientes.length} pedido(s) por $${totalUSD.toFixed(2)}. ¿Confirmar?`)) return;
+
+  const cierre={
+    id:uid(),fecha:dk,turno:turnoActual,
+    horaCierre:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+    numPedidos:pendientes.length,totalUSD,totalBs,porMetodo
+  };
+  const cierres=cargarJSON('guayoyo_cierres');
+  cierres.push(cierre);
+  guardarJSON('guayoyo_cierres',cierres);
+  sincronizarEnNube('cierre',cierre);
+  renderResumen();
+  showToast('🔒 Turno cerrado');
+}
+function renderCierreTurno(){
+  const dk=document.getElementById('resumenDate').value;
+  const pendientes=pedidosPendientesDeCierre(dk);
+  const totalPend=pendientes.reduce((s,o)=>s+o.totalUSD,0);
+  const cierresHoy=cargarJSON('guayoyo_cierres').filter(c=>c.fecha===dk).sort((a,b)=>a.horaCierre.localeCompare(b.horaCierre));
+  const box=document.getElementById('cierreTurnoBox');
+  box.innerHTML=`
+    <div class="cierre-card">
+      <h3>🔒 Cierre de turno</h3>
+      ${cierresHoy.map(c=>`
+        <div class="cierre-pasado">
+          ✅ ${c.turno==='manana'?'Mañana':'Tarde'} cerrado a las ${c.horaCierre} — ${c.numPedidos} pedidos — $${c.totalUSD.toFixed(2)}
+        </div>`).join('')}
+      <div style="font-size:13px;margin:10px 0;">Pendientes de cierre: <b>${pendientes.length}</b> pedido(s) · <b>$${totalPend.toFixed(2)}</b></div>
+      <button class="btn-secundario" onclick="cerrarTurno()">Cerrar turno ${turnoActual==='manana'?'Mañana':'Tarde'} ahora</button>
+    </div>`;
+}
+
+// ======================================================================
+// RESUMEN + BALANCE POR MÉTODO
+// ======================================================================
+function calcularBalancePorMetodo(dk){
+  const apertura=obtenerAperturaFecha(dk);
+  const tasaInfo=obtenerTasaFecha(dk);
+  const aperturaUSDenBs = apertura.aperturaUSD||0;
+  const balance={PM:0,POS:0,EBS:apertura.aperturaBs && tasaInfo && tasaInfo.tasaUSD ? apertura.aperturaBs/tasaInfo.tasaUSD : 0,EDIV:aperturaUSDenBs};
+  getOrders(dk).filter(o=>o.estado==='pagado').forEach(o=>{
+    pagosDe(o).forEach(p=>{ if(balance[p.metodo]!==undefined) balance[p.metodo]+=(p.montoUSD||0); });
+  });
+  cargarJSON('guayoyo_gastos').filter(g=>g.fecha===dk).forEach(g=>{
+    if(balance[g.metodo]!==undefined) balance[g.metodo]-=(g.montoUSD||0);
+  });
+  cargarJSON('guayoyo_facturas').filter(f=>f.estado==='pagada' && f.fechaPagada===dk).forEach(f=>{
+    if(balance[f.metodoPago]!==undefined) balance[f.metodoPago]-=(f.montoUSD||0);
+  });
+  cargarJSON('guayoyo_movimientos_empleado').filter(m=>m.tipo==='adelanto' && m.fecha===dk).forEach(m=>{
+    if(balance[m.metodo]!==undefined) balance[m.metodo]-=(m.montoUSD||0);
+  });
+  return balance;
 }
 
 function renderResumen(){
   const dk=document.getElementById('resumenDate').value;
-  const orders=getOrders(dk);const el=document.getElementById('resumenContent');
-  if(!orders.length){el.innerHTML=`<div class="empty"><div class="empty-icon">📊</div>Sin ventas este día</div>`;return;}
+  renderAperturaCaja();
+  renderCierreTurno();
+  const orders=getOrders(dk).filter(o=>o.estado==='pagado');const el=document.getElementById('resumenContent');
+  if(!orders.length){el.innerHTML=`<div class="empty"><div class="empty-icon">📊</div>Sin ventas pagadas este día</div>`;return;}
   const byPay={},byProduct={};let totalUSD=0,totalBs=0;
   orders.forEach(o=>{
-    if(!byPay[o.pay])byPay[o.pay]={usd:0,bs:0,count:0};
-    byPay[o.pay].usd+=o.totalUSD;byPay[o.pay].bs+=o.totalBs||0;byPay[o.pay].count++;
     totalUSD+=o.totalUSD;totalBs+=o.totalBs||0;
+    pagosDe(o).forEach(p=>{
+      if(!byPay[p.metodo])byPay[p.metodo]={usd:0,bs:0,count:0};
+      byPay[p.metodo].usd+=(p.montoUSD||0);byPay[p.metodo].bs+=(p.montoBs||0);byPay[p.metodo].count++;
+    });
     o.items.forEach(item=>{
       if(!byProduct[item.name])byProduct[item.name]={qty:0,usd:0};
       byProduct[item.name].qty+=item.qty;byProduct[item.name].usd+=item.subtotal;
     });
   });
+  const balance=calcularBalancePorMetodo(dk);
   const dateLabel=new Date(dk+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
   el.innerHTML=`
     <div class="summary-date">${dateLabel}</div>
@@ -377,8 +1278,16 @@ function renderResumen(){
       ${Object.entries(byPay).map(([pay,d])=>`
         <div class="summary-row">
           <span><span class="order-pay-tag ${PAY_CLASS[pay]}" style="margin-right:6px;">${PAY_LABELS[pay]}</span>
-          <span style="color:var(--muted);font-size:11px;">${d.count} pedido${d.count>1?'s':''}</span></span>
+          <span style="color:var(--muted);font-size:11px;">${d.count} uso${d.count>1?'s':''}</span></span>
           <span class="val">$${d.usd.toFixed(2)}</span>
+        </div>`).join('')}
+    </div>
+    <div class="summary-card">
+      <h3>🏦 Balance de caja por método</h3>
+      ${Object.keys(PAY_LABELS).filter(m=>m!=='MIXTO').map(m=>`
+        <div class="balance-row">
+          <span>${PAY_LABELS[m]}</span>
+          <span class="${balance[m]>=0?'balance-pos':'balance-neg'}">${fmt$(balance[m])}</span>
         </div>`).join('')}
     </div>
     <div class="summary-card">
@@ -391,16 +1300,123 @@ function renderResumen(){
     </div>`;
 }
 
-function showPage(id,tab){
+// ======================================================================
+// SINCRONIZACIÓN CON GOOGLE SHEETS
+// ======================================================================
+async function sincronizarDesdeNube(){
+  if(!APPS_SCRIPT_URL_GUAYOYO) return false;
+  try{
+    const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO);
+    if(!resp.ok) throw new Error('respuesta no OK: '+resp.status);
+    const data=await resp.json();
+    if(Array.isArray(data.tasas)) guardarJSON('guayoyo_tasas_historial',data.tasas);
+    if(Array.isArray(data.pedidos)) guardarJSON('guayoyo_pedidos',data.pedidos);
+    if(Array.isArray(data.gastos)) guardarJSON('guayoyo_gastos',data.gastos);
+    if(Array.isArray(data.facturas)) guardarJSON('guayoyo_facturas',data.facturas);
+    if(Array.isArray(data.empleados) && data.empleados.length) guardarJSON('guayoyo_empleados',data.empleados);
+    if(Array.isArray(data.movimientos)) guardarJSON('guayoyo_movimientos_empleado',data.movimientos);
+    if(Array.isArray(data.cierres)) guardarJSON('guayoyo_cierres',data.cierres);
+    if(Array.isArray(data.aperturas)) guardarJSON('guayoyo_caja_apertura',data.aperturas);
+    return true;
+  }catch(e){ console.warn('No se pudo sincronizar desde la nube',e); return false; }
+}
+async function sincronizarEnNube(tipo,registro){
+  if(!APPS_SCRIPT_URL_GUAYOYO) return;
+  try{
+    const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO,{method:'POST',body:JSON.stringify({accion:'guardar',tipo,registro})});
+    const data=await resp.json();
+    mostrarEstadoSync(data.ok?'ok':'error');
+  }catch(e){ console.warn('No se pudo sincronizar',tipo,e); mostrarEstadoSync('error'); }
+}
+async function eliminarEnNube(tipo,id){
+  if(!APPS_SCRIPT_URL_GUAYOYO) return;
+  try{
+    const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO,{method:'POST',body:JSON.stringify({accion:'eliminar',tipo,id})});
+    const data=await resp.json();
+    mostrarEstadoSync(data.ok?'ok':'error');
+  }catch(e){ console.warn('No se pudo eliminar en la nube',tipo,e); mostrarEstadoSync('error'); }
+}
+function mostrarEstadoSync(estado){
+  const el=document.getElementById('syncBadge');
+  if(!el) return;
+  const estilos={
+    local:{texto:'📴 Solo en este dispositivo',color:'rgba(255,255,255,0.55)'},
+    checking:{texto:'🔄 Sincronizando…',color:'rgba(255,255,255,0.55)'},
+    ok:{texto:'☁️ Sincronizado',color:'#7CFFB2'},
+    error:{texto:'⚠️ Sin conexión — guardado local',color:'#FFD27C'},
+  };
+  const s=estilos[estado]||estilos.local;
+  el.textContent=s.texto; el.style.color=s.color;
+}
+
+// ======================================================================
+// NAVEGACIÓN
+// ======================================================================
+function renderTab(id){
+  if(id==='pedidos')renderPedidos();
+  if(id==='abiertas')renderAbiertas();
+  if(id==='resumen')renderResumen();
+  if(id==='gastos')renderGastos();
+  if(id==='facturas')renderFacturas();
+  if(id==='empleados')renderEmpleados();
+}
+
+async function showPage(id,tab){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById('page-'+id).classList.add('active');tab.classList.add('active');
-  if(id==='pedidos')renderPedidos();if(id==='resumen')renderResumen();
+
+  if(intervalSync){ clearInterval(intervalSync); intervalSync=null; }
+
+  if(id!=='nuevo' && APPS_SCRIPT_URL_GUAYOYO){
+    mostrarEstadoSync('checking');
+    const ok=await sincronizarDesdeNube();
+    mostrarEstadoSync(ok?'ok':'error');
+    renderTab(id);
+    intervalSync=setInterval(async ()=>{
+      const ok2=await sincronizarDesdeNube();
+      mostrarEstadoSync(ok2?'ok':'error');
+      renderTab(id);
+    },30000);
+  } else {
+    renderTab(id);
+  }
 }
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2500);
 }
+
+window.onload=async function(){
+  document.getElementById('headerDate').textContent=
+    new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
+
+  migrarPedidosAntiguos();
+  seedEmpleados();
+
+  mostrarEstadoSync(APPS_SCRIPT_URL_GUAYOYO?'checking':'local');
+  const ok=await sincronizarDesdeNube();
+  if(APPS_SCRIPT_URL_GUAYOYO) mostrarEstadoSync(ok?'ok':'error');
+
+  const cs=document.getElementById('catScroll');
+  CATS.forEach(cat=>{
+    const b=document.createElement('button');
+    b.className='cat-btn'+(cat==='Todos'?' active':'');
+    b.textContent=cat; b.onclick=()=>filterCat(cat);
+    cs.appendChild(b);
+  });
+  renderProducts();
+  document.getElementById('turno-manana').classList.toggle('selected',turnoActual==='manana');
+  document.getElementById('turno-tarde').classList.toggle('selected',turnoActual==='tarde');
+  prellenarTasas();
+  renderHistorialTasas();
+  setTodayPedidos();
+  setTodayResumen();
+  document.getElementById('gastoFecha').value=todayKey();
+  setTodayGastos();
+  renderFacturas();
+  renderEmpleados();
+};
 </script>
 </body>
 </html>
