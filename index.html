@@ -1315,6 +1315,7 @@ async function sincronizarDesdeNube(){
     const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO);
     if(!resp.ok) throw new Error('respuesta no OK: '+resp.status);
     const data=await resp.json();
+    console.log('%c[DIAGNOSTICO] datos recibidos de la nube','color:blue',data);
     fusionar('guayoyo_tasas_historial',data.tasas,'fecha','tasa');
     fusionar('guayoyo_pedidos',data.pedidos,'id','pedido');
     fusionar('guayoyo_gastos',data.gastos,'id','gasto');
@@ -1324,7 +1325,7 @@ async function sincronizarDesdeNube(){
     fusionar('guayoyo_cierres',data.cierres,'id','cierre');
     fusionar('guayoyo_caja_apertura',data.aperturas,'fecha','apertura');
     return true;
-  }catch(e){ console.warn('No se pudo sincronizar desde la nube',e); return false; }
+  }catch(e){ console.warn('%c[DIAGNOSTICO] fallo al sincronizar desde la nube','color:red',e); return false; }
 }
 
 // Combina lo que llega de la nube con lo que ya está en este dispositivo,
@@ -1343,7 +1344,9 @@ function fusionar(lsKey,remotos,clave,tipo){
     const remoto=mapa[key];
     if(!remoto || (l._ts||0) > (remoto._ts||0)){ mapa[key]=l; aRepush.push(l); }
   });
-  guardarJSON(lsKey,Object.values(mapa));
+  const resultado=Object.values(mapa);
+  console.log(`%c[DIAGNOSTICO] ${lsKey}`,'color:green',{remotos:remotos.length,locales:locales.length,resultadoFinal:resultado.length,aResubir:aRepush.length});
+  guardarJSON(lsKey,resultado);
   aRepush.forEach(item=>sincronizarEnNube(tipo,item));
 }
 async function sincronizarEnNube(tipo,registro){
@@ -1351,8 +1354,9 @@ async function sincronizarEnNube(tipo,registro){
   try{
     const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO,{method:'POST',body:JSON.stringify({accion:'guardar',tipo,registro})});
     const data=await resp.json();
+    console.log(`%c[DIAGNOSTICO] subida ${tipo}`,'color:purple',{registro,respuesta:data});
     mostrarEstadoSync(data.ok?'ok':'error');
-  }catch(e){ console.warn('No se pudo sincronizar',tipo,e); mostrarEstadoSync('error'); }
+  }catch(e){ console.warn(`%c[DIAGNOSTICO] fallo al subir ${tipo}`,'color:red',e); mostrarEstadoSync('error'); }
 }
 async function eliminarEnNube(tipo,id){
   if(!APPS_SCRIPT_URL_GUAYOYO) return;
