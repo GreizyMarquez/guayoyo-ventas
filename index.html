@@ -434,7 +434,7 @@ let cobroAbiertoId=null, modoSplitCobro=false;
 // Pega aquí la URL de tu Web App de Apps Script (termina en /exec).
 const APPS_SCRIPT_URL_GUAYOYO = 'https://script.google.com/macros/s/AKfycbxTppHklBf6BbBTdtccKDFSa4NR4lVGtTo5VxuPEaj2wH6XBS5rIhYEblw4lY3TMC-lQw/exec';
 
-function todayKey(){return new Date().toISOString().slice(0,10);}
+function todayKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function uid(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);}
 function fmt$(n){return '$'+(n||0).toFixed(2);}
 function fmtBs(n){return 'Bs '+(n||0).toFixed(2);}
@@ -466,8 +466,8 @@ function migrarPedidosAntiguos(){
 function seedEmpleados(){
   if(localStorage.getItem('guayoyo_empleados')) return;
   guardarJSON('guayoyo_empleados',[
-    {id:uid(),nombre:'Empleado 1',turno:'Mañana 6:00 - 14:00',diaLibre:'Martes',salarioSemanalUSD:50},
-    {id:uid(),nombre:'Empleado 2',turno:'Tarde 12:00 - 20:00',diaLibre:'Martes',salarioSemanalUSD:50},
+    {id:uid(),nombre:'Empleado 1',turno:'Mañana 6:00 - 14:00',diaLibre:'Martes',salarioSemanalUSD:50,_ts:Date.now()},
+    {id:uid(),nombre:'Empleado 2',turno:'Tarde 12:00 - 20:00',diaLibre:'Martes',salarioSemanalUSD:50,_ts:Date.now()},
   ]);
 }
 
@@ -480,13 +480,18 @@ function guardarTasasDeHoy(){
   if(!tasaUSD && !tasaEUR) return;
   const historial=cargarJSON('guayoyo_tasas_historial');
   const idx=historial.findIndex(r=>r.fecha===todayKey());
-  const registro={fecha:todayKey(),tasaUSD,tasaEUR};
+  const registro={fecha:todayKey(),tasaUSD,tasaEUR,_ts:Date.now()};
   if(idx>=0) historial[idx]=registro; else historial.push(registro);
   guardarJSON('guayoyo_tasas_historial',historial);
   renderHistorialTasas();
   sincronizarEnNube('tasa',registro);
 }
-function onTasaChange(){ updateTotals(); guardarTasasDeHoy(); }
+let debounceTasa=null;
+function onTasaChange(){
+  updateTotals();
+  if(debounceTasa) clearTimeout(debounceTasa);
+  debounceTasa=setTimeout(guardarTasasDeHoy,900);
+}
 function obtenerTasaFecha(fecha){
   return cargarJSON('guayoyo_tasas_historial').find(r=>r.fecha===fecha) || null;
 }
@@ -660,7 +665,7 @@ function guardarPedido(){
     id:uid(),num,fecha:dk,time:horaAhora,horaPago:horaAhora,
     items,totalUSD,totalBs:tasa>0?totalUSD*tasa:null,tasa,
     pay: pagos.length===1?pagos[0].metodo:'MIXTO',
-    pagos, estado:'pagado', turno:turnoActual, referencia:''
+    pagos, estado:'pagado', turno:turnoActual, referencia:'', _ts:Date.now()
   };
   addOrderToStore(nuevoPedido);
   sincronizarEnNube('pedido',nuevoPedido);
@@ -698,7 +703,7 @@ function dejarPendiente(){
     time:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
     horaPago:null,
     items,totalUSD,totalBs:tasa>0?totalUSD*tasa:null,tasa,
-    pay:null,pagos:[],estado:'abierto',turno:turnoActual,referencia
+    pay:null,pagos:[],estado:'abierto',turno:turnoActual,referencia,_ts:Date.now()
   };
   addOrderToStore(nuevoPedido);
   sincronizarEnNube('pedido',nuevoPedido);
@@ -820,6 +825,7 @@ function completarPago(id,pagos){
   o.pagos=pagos;
   o.pay=pagos.length===1?pagos[0].metodo:'MIXTO';
   o.horaPago=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  o._ts=Date.now();
   guardarJSON('guayoyo_pedidos',todos);
   sincronizarEnNube('pedido',o);
   cobroAbiertoId=null;
@@ -884,7 +890,7 @@ function agregarGasto(){
   if(gastoMoneda==='USD'){ montoUSD=montoInput; montoBs=tasa>0?montoInput*tasa:null; }
   else { montoBs=montoInput; montoUSD=tasa>0?montoInput/tasa:null; }
 
-  const gasto={id:uid(),fecha,descripcion:desc,montoUSD,montoBs,metodo:gastoPaySel,moneda:gastoMoneda};
+  const gasto={id:uid(),fecha,descripcion:desc,montoUSD,montoBs,metodo:gastoPaySel,moneda:gastoMoneda,_ts:Date.now()};
   const gastos=cargarJSON('guayoyo_gastos');
   gastos.push(gasto);
   guardarJSON('guayoyo_gastos',gastos);
@@ -931,7 +937,7 @@ function agregarFactura(){
   if(isNaN(monto)||monto<=0){ alert('Ingresa un monto válido.'); return; }
   if(!fechaPago){ alert('Selecciona la fecha de pago.'); return; }
 
-  const factura={id:uid(),descripcion:desc,montoUSD:monto,fechaPago,estado:'pendiente',fechaPagada:null,montoBs:null,metodoPago:null,tasaUsada:null};
+  const factura={id:uid(),descripcion:desc,montoUSD:monto,fechaPago,estado:'pendiente',fechaPagada:null,montoBs:null,metodoPago:null,tasaUsada:null,_ts:Date.now()};
   const facturas=cargarJSON('guayoyo_facturas');
   facturas.push(factura);
   guardarJSON('guayoyo_facturas',facturas);
@@ -963,13 +969,13 @@ function marcarFacturaPagada(id){
     tasaUSD=manual;
     const historial=cargarJSON('guayoyo_tasas_historial');
     const idx=historial.findIndex(r=>r.fecha===hoy);
-    const registro={fecha:hoy,tasaUSD,tasaEUR:(idx>=0?historial[idx].tasaEUR:0)};
+    const registro={fecha:hoy,tasaUSD,tasaEUR:(idx>=0?historial[idx].tasaEUR:0),_ts:Date.now()};
     if(idx>=0) historial[idx]=registro; else historial.push(registro);
     guardarJSON('guayoyo_tasas_historial',historial);
     sincronizarEnNube('tasa',registro);
   }
 
-  f.estado='pagada'; f.fechaPagada=hoy; f.metodoPago=m; f.tasaUsada=tasaUSD; f.montoBs=f.montoUSD*tasaUSD;
+  f.estado='pagada'; f.fechaPagada=hoy; f.metodoPago=m; f.tasaUsada=tasaUSD; f.montoBs=f.montoUSD*tasaUSD; f._ts=Date.now();
   guardarJSON('guayoyo_facturas',facturas);
   sincronizarEnNube('factura',f);
   renderFacturas();
@@ -1030,7 +1036,7 @@ function semanaActual(){
   const diffLunes = dow===0 ? -6 : 1-dow;
   const lunes=new Date(hoy); lunes.setDate(hoy.getDate()+diffLunes);
   const domingo=new Date(lunes); domingo.setDate(lunes.getDate()+6);
-  const f=d=>d.toISOString().slice(0,10);
+  const f=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   return {desde:f(lunes),hasta:f(domingo)};
 }
 
@@ -1110,7 +1116,7 @@ function abrirAdelanto(empId){
   const m=metodoStr.toUpperCase();
   const tasaHoy=obtenerTasaFecha(todayKey());
   const tasa=parseFloat(document.getElementById('tasaUSD').value) || (tasaHoy?tasaHoy.tasaUSD:0) || 0;
-  const mov={id:uid(),empleadoId:empId,fecha:todayKey(),tipo:'adelanto',montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:m,descripcion:''};
+  const mov={id:uid(),empleadoId:empId,fecha:todayKey(),tipo:'adelanto',montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:m,descripcion:'',_ts:Date.now()};
   const movs=cargarJSON('guayoyo_movimientos_empleado');
   movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
   sincronizarEnNube('movimiento',mov);
@@ -1123,7 +1129,7 @@ function abrirConsumo(empId){
   const monto=parseFloat(montoStr);
   if(isNaN(monto)||monto<=0) return;
   const desc=prompt('¿Qué consumió? (opcional)','')||'';
-  const mov={id:uid(),empleadoId:empId,fecha:todayKey(),tipo:'consumo',montoUSD:monto,montoBs:null,metodo:null,descripcion:desc};
+  const mov={id:uid(),empleadoId:empId,fecha:todayKey(),tipo:'consumo',montoUSD:monto,montoBs:null,metodo:null,descripcion:desc,_ts:Date.now()};
   const movs=cargarJSON('guayoyo_movimientos_empleado');
   movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
   sincronizarEnNube('movimiento',mov);
@@ -1143,7 +1149,7 @@ function guardarAperturaCaja(){
   const aperturaUSD=parseFloat(document.getElementById('aperturaUSDInput').value)||0;
   const lista=cargarJSON('guayoyo_caja_apertura');
   const idx=lista.findIndex(a=>a.fecha===dk);
-  const registro={fecha:dk,aperturaBs,aperturaUSD};
+  const registro={fecha:dk,aperturaBs,aperturaUSD,_ts:Date.now()};
   if(idx>=0) lista[idx]=registro; else lista.push(registro);
   guardarJSON('guayoyo_caja_apertura',lista);
   sincronizarEnNube('apertura',registro);
@@ -1191,7 +1197,7 @@ function cerrarTurno(){
   const cierre={
     id:uid(),fecha:dk,turno:turnoActual,
     horaCierre:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
-    numPedidos:pendientes.length,totalUSD,totalBs,porMetodo
+    numPedidos:pendientes.length,totalUSD,totalBs,porMetodo,_ts:Date.now()
   };
   const cierres=cargarJSON('guayoyo_cierres');
   cierres.push(cierre);
@@ -1321,17 +1327,24 @@ async function sincronizarDesdeNube(){
   }catch(e){ console.warn('No se pudo sincronizar desde la nube',e); return false; }
 }
 
-// Combina lo que llega de la nube con lo que ya está en este dispositivo.
-// Si algo existe solo localmente (aún no llegó a la nube, por ejemplo por
-// falta de conexión), se conserva y se reintenta subir automáticamente,
-// en vez de perderse al sobrescribir con los datos remotos.
+// Combina lo que llega de la nube con lo que ya está en este dispositivo,
+// comparando cuál versión es más reciente (campo _ts). Si un registro
+// local es más nuevo que el de la nube (por ejemplo, la nube todavía no
+// terminó de procesar el guardado anterior), se conserva el local y se
+// reintenta subir — nunca se pierde el cambio más reciente.
 function fusionar(lsKey,remotos,clave,tipo){
   if(!Array.isArray(remotos)) return;
   const locales=cargarJSON(lsKey);
-  const idsRemotos=new Set(remotos.map(r=>String(r[clave])));
-  const soloLocales=locales.filter(l=>!idsRemotos.has(String(l[clave])));
-  guardarJSON(lsKey,[...remotos,...soloLocales]);
-  soloLocales.forEach(item=>sincronizarEnNube(tipo,item));
+  const mapa={};
+  remotos.forEach(r=>{ mapa[String(r[clave])]=r; });
+  const aRepush=[];
+  locales.forEach(l=>{
+    const key=String(l[clave]);
+    const remoto=mapa[key];
+    if(!remoto || (l._ts||0) > (remoto._ts||0)){ mapa[key]=l; aRepush.push(l); }
+  });
+  guardarJSON(lsKey,Object.values(mapa));
+  aRepush.forEach(item=>sincronizarEnNube(tipo,item));
 }
 async function sincronizarEnNube(tipo,registro){
   if(!APPS_SCRIPT_URL_GUAYOYO) return;
