@@ -718,6 +718,8 @@ function setTodayGastos(){document.getElementById('gastosDate').value=todayKey()
 
 function renderPedidos(){
   const dk=document.getElementById('pedidosDate').value;
+  const todos=cargarJSON('guayoyo_pedidos');
+  console.log('%c[DIAGNOSTICO] renderPedidos','color:orange',{buscando:dk,fechasGuardadas:todos.map(o=>o.fecha)});
   const orders=getOrders(dk);const list=document.getElementById('pedidosList');
   if(!orders.length){list.innerHTML=`<div class="empty"><div class="empty-icon">📋</div>Sin pedidos este día</div>`;return;}
   list.innerHTML=[...orders].reverse().map(o=>{
@@ -912,7 +914,9 @@ function eliminarGasto(id){
 }
 function renderGastos(){
   const dk=document.getElementById('gastosDate').value;
-  const gastos=cargarJSON('guayoyo_gastos').filter(g=>g.fecha===dk).sort((a,b)=>b.id.localeCompare(a.id));
+  const todos=cargarJSON('guayoyo_gastos');
+  console.log('%c[DIAGNOSTICO] renderGastos','color:orange',{buscando:dk,fechasGuardadas:todos.map(g=>g.fecha)});
+  const gastos=todos.filter(g=>g.fecha===dk).sort((a,b)=>b.id.localeCompare(a.id));
   const list=document.getElementById('gastosList');
   if(!gastos.length){ list.innerHTML=`<div class="empty"><div class="empty-icon">💸</div>Sin gastos este día</div>`; return; }
   list.innerHTML=gastos.map(g=>`
