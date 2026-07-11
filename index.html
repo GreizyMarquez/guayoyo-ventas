@@ -1309,16 +1309,29 @@ async function sincronizarDesdeNube(){
     const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO);
     if(!resp.ok) throw new Error('respuesta no OK: '+resp.status);
     const data=await resp.json();
-    if(Array.isArray(data.tasas)) guardarJSON('guayoyo_tasas_historial',data.tasas);
-    if(Array.isArray(data.pedidos)) guardarJSON('guayoyo_pedidos',data.pedidos);
-    if(Array.isArray(data.gastos)) guardarJSON('guayoyo_gastos',data.gastos);
-    if(Array.isArray(data.facturas)) guardarJSON('guayoyo_facturas',data.facturas);
-    if(Array.isArray(data.empleados) && data.empleados.length) guardarJSON('guayoyo_empleados',data.empleados);
-    if(Array.isArray(data.movimientos)) guardarJSON('guayoyo_movimientos_empleado',data.movimientos);
-    if(Array.isArray(data.cierres)) guardarJSON('guayoyo_cierres',data.cierres);
-    if(Array.isArray(data.aperturas)) guardarJSON('guayoyo_caja_apertura',data.aperturas);
+    fusionar('guayoyo_tasas_historial',data.tasas,'fecha','tasa');
+    fusionar('guayoyo_pedidos',data.pedidos,'id','pedido');
+    fusionar('guayoyo_gastos',data.gastos,'id','gasto');
+    fusionar('guayoyo_facturas',data.facturas,'id','factura');
+    if(Array.isArray(data.empleados) && data.empleados.length) fusionar('guayoyo_empleados',data.empleados,'id','empleado');
+    fusionar('guayoyo_movimientos_empleado',data.movimientos,'id','movimiento');
+    fusionar('guayoyo_cierres',data.cierres,'id','cierre');
+    fusionar('guayoyo_caja_apertura',data.aperturas,'fecha','apertura');
     return true;
   }catch(e){ console.warn('No se pudo sincronizar desde la nube',e); return false; }
+}
+
+// Combina lo que llega de la nube con lo que ya está en este dispositivo.
+// Si algo existe solo localmente (aún no llegó a la nube, por ejemplo por
+// falta de conexión), se conserva y se reintenta subir automáticamente,
+// en vez de perderse al sobrescribir con los datos remotos.
+function fusionar(lsKey,remotos,clave,tipo){
+  if(!Array.isArray(remotos)) return;
+  const locales=cargarJSON(lsKey);
+  const idsRemotos=new Set(remotos.map(r=>String(r[clave])));
+  const soloLocales=locales.filter(l=>!idsRemotos.has(String(l[clave])));
+  guardarJSON(lsKey,[...remotos,...soloLocales]);
+  soloLocales.forEach(item=>sincronizarEnNube(tipo,item));
 }
 async function sincronizarEnNube(tipo,registro){
   if(!APPS_SCRIPT_URL_GUAYOYO) return;
