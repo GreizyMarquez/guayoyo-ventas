@@ -377,8 +377,34 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 </div>
 
 <div class="toast" id="toast"></div>
+<div id="debugPanel" style="display:none;position:fixed;bottom:0;left:0;right:0;background:#c0392b;color:white;font-size:11px;padding:10px 12px;z-index:999;max-height:35vh;overflow-y:auto;font-family:monospace;line-height:1.5;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <b>⚠️ Errores detectados</b>
+    <button onclick="document.getElementById('debugPanel').style.display='none'" style="background:white;color:#c0392b;border:none;border-radius:6px;padding:4px 10px;font-weight:800;">cerrar</button>
+  </div>
+  <div id="debugPanelBody"></div>
+</div>
 
 <script>
+function mostrarErrorEnPantalla(texto){
+  const panel=document.getElementById('debugPanel');
+  const body=document.getElementById('debugPanelBody');
+  if(!panel||!body) return;
+  panel.style.display='block';
+  const linea=document.createElement('div');
+  linea.style.borderTop='1px solid rgba(255,255,255,0.3)';
+  linea.style.padding='4px 0';
+  linea.textContent=texto;
+  body.appendChild(linea);
+}
+window.onerror=function(msg,url,line,col){
+  mostrarErrorEnPantalla(`JS: ${msg} (línea ${line}:${col})`);
+  return false;
+};
+window.addEventListener('unhandledrejection',function(event){
+  mostrarErrorEnPantalla('Promesa: '+(event.reason && event.reason.message ? event.reason.message : event.reason));
+});
+
 const MENU=[
   {cat:'Clásica',name:'Empanada - Queso',price:2.00},
   {cat:'Clásica',name:'Empanada - Jamón y queso',price:2.00},
@@ -441,7 +467,7 @@ let intervalSync=null;
 let cobroAbiertoId=null, modoSplitCobro=false;
 
 // Pega aquí la URL de tu Web App de Apps Script (termina en /exec).
-const APPS_SCRIPT_URL_GUAYOYO = 'https://script.google.com/macros/s/AKfycbxTppHklBf6BbBTdtccKDFSa4NR4lVGtTo5VxuPEaj2wH6XBS5rIhYEblw4lY3TMC-lQw/exec';
+const APPS_SCRIPT_URL_GUAYOYO = 'https://script.google.com/macros/s/AKfycbykWnKaiOkDgt6d6NGkclRa-8RmQjo4X47zdCgqOYFKPPNEBUL2bxVOhELaO5rfENhT9Q/exec';
 
 function todayKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function uid(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);}
@@ -1360,7 +1386,7 @@ function fusionar(lsKey,remotos,clave,tipo){
   const resultado=Object.values(mapa);
   console.log(`%c[DIAGNOSTICO] ${lsKey}`,'color:green',{remotos:remotos.length,locales:locales.length,resultadoFinal:resultado.length,aResubir:aRepush.length});
   guardarJSON(lsKey,resultado);
-  aRepush.forEach(item=>sincronizarEnNube(tipo,item));
+  aRepush.forEach((item,i)=>setTimeout(()=>sincronizarEnNube(tipo,item), i*250));
 }
 async function sincronizarEnNube(tipo,registro){
   if(!APPS_SCRIPT_URL_GUAYOYO) return;
@@ -1428,4 +1454,53 @@ async function showPage(id,tab){
 
   if(id!=='nuevo' && APPS_SCRIPT_URL_GUAYOYO){
     mostrarEstadoSync('checking');
-    const ok=await sincronizarDesdeNube(
+    const ok=await sincronizarDesdeNube();
+    mostrarEstadoSync(ok?'ok':'error');
+    renderTab(id);
+    intervalSync=setInterval(async ()=>{
+      const ok2=await sincronizarDesdeNube();
+      mostrarEstadoSync(ok2?'ok':'error');
+      renderTab(id);
+    },30000);
+  } else {
+    renderTab(id);
+  }
+}
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+window.onload=async function(){
+  document.getElementById('headerDate').textContent=
+    new Date().toLocaleDateString('es-ES',{day:'2-digit',month:'short',year:'numeric'}).toUpperCase();
+
+  migrarPedidosAntiguos();
+  seedEmpleados();
+
+  mostrarEstadoSync(APPS_SCRIPT_URL_GUAYOYO?'checking':'local');
+  const ok=await sincronizarDesdeNube();
+  if(APPS_SCRIPT_URL_GUAYOYO) mostrarEstadoSync(ok?'ok':'error');
+
+  const cs=document.getElementById('catScroll');
+  CATS.forEach(cat=>{
+    const b=document.createElement('button');
+    b.className='cat-btn'+(cat==='Todos'?' active':'');
+    b.textContent=cat; b.onclick=()=>filterCat(cat);
+    cs.appendChild(b);
+  });
+  renderProducts();
+  document.getElementById('turno-manana').classList.toggle('selected',turnoActual==='manana');
+  document.getElementById('turno-tarde').classList.toggle('selected',turnoActual==='tarde');
+  prellenarTasas();
+  renderHistorialTasas();
+  setTodayPedidos();
+  setTodayResumen();
+  document.getElementById('gastoFecha').value=todayKey();
+  setTodayGastos();
+  renderFacturas();
+  renderEmpleados();
+};
+</script>
+</body>
+</html>
