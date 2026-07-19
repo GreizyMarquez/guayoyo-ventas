@@ -1137,6 +1137,7 @@ function renderEmpleados(){
           <button onclick="event.stopPropagation();abrirAdelanto('${e.id}')">+ Adelanto</button>
           <button onclick="event.stopPropagation();abrirConsumo('${e.id}')">+ Consumo</button>
           <button onclick="event.stopPropagation();abrirHorasExtra('${e.id}')">+ H. extra</button>
+          <button onclick="event.stopPropagation();eliminarEmpleado('${e.id}')">🗑 Eliminar</button>
         </div>
         <div id="emp-movs-${e.id}" style="margin-top:10px;"></div>
       </div>
@@ -1164,6 +1165,19 @@ function renderMovimientosEmpleado(empId,semana){
       <span style="font-weight:700;">${valor}</span>
     </div>`;
   }).join('');
+}
+
+function eliminarEmpleado(empId){
+  const empleados=cargarJSON('guayoyo_empleados');
+  const emp=empleados.find(e=>e.id===empId);
+  if(!emp) return;
+  if(!confirm(`¿Eliminar a "${emp.nombre}"? Esto no borra sus movimientos ya registrados (adelantos, consumos, horas extra), solo lo quita de la lista de equipo.`)) return;
+  const restantes=empleados.filter(e=>e.id!==empId);
+  guardarJSON('guayoyo_empleados',restantes);
+  eliminarEnNube('empleado',empId);
+  if(empleadoAbierto===empId) empleadoAbierto=null;
+  renderEmpleados();
+  showToast('🗑 Empleado eliminado');
 }
 
 function abrirAdelanto(empId){
