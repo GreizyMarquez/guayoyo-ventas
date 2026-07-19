@@ -357,6 +357,7 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 
 <!-- EMPLEADOS -->
 <div class="page" id="page-empleados">
+  <button class="btn-secundario" onclick="agregarEmpleado()" style="margin-bottom:12px;">+ Agregar empleado</button>
   <div id="empleadosList"></div>
 </div>
 
@@ -1132,6 +1133,7 @@ function renderEmpleados(){
         <div class="emp-summary-row"><span>− Consumos</span><span>${fmt$(r.consumosUSD)}</span></div>
         <div class="emp-summary-row total"><span>Neto a pagar</span><span>${r.tasaEUR?fmtBs(r.netoBs):'—'}</span></div>
         <div class="emp-actions">
+          <button onclick="event.stopPropagation();editarEmpleado('${e.id}')">✏️ Editar</button>
           <button onclick="event.stopPropagation();abrirAdelanto('${e.id}')">+ Adelanto</button>
           <button onclick="event.stopPropagation();abrirConsumo('${e.id}')">+ Consumo</button>
           <button onclick="event.stopPropagation();abrirHorasExtra('${e.id}')">+ H. extra</button>
@@ -1194,6 +1196,49 @@ function abrirConsumo(empId){
   showToast('✅ Consumo registrado');
 }
 
+function agregarEmpleado(){
+  const nombre=prompt('Nombre del empleado:','');
+  if(nombre===null || !nombre.trim()) return;
+  const turno=prompt('Turno (ej: Mañana 6:00 - 14:00):','')||'';
+  const diaLibre=prompt('Día libre:','')||'';
+  const salarioStr=prompt('Salario semanal en $:','');
+  const salario=parseFloat(salarioStr);
+  if(isNaN(salario)||salario<0){ alert('Ingresa un salario válido.'); return; }
+  const emp={id:uid(),nombre:nombre.trim(),turno:turno.trim(),diaLibre:diaLibre.trim(),salarioSemanalUSD:salario,_ts:Date.now()};
+  const empleados=cargarJSON('guayoyo_empleados');
+  empleados.push(emp);
+  guardarJSON('guayoyo_empleados',empleados);
+  sincronizarEnNube('empleado',emp);
+  renderEmpleados();
+  showToast('✅ Empleado agregado');
+}
+
+function editarEmpleado(empId){
+  const empleados=cargarJSON('guayoyo_empleados');
+  const emp=empleados.find(e=>e.id===empId);
+  if(!emp) return;
+  const nombre=prompt('Nombre del empleado:',emp.nombre);
+  if(nombre===null) return;
+  if(!nombre.trim()){ alert('El nombre no puede quedar vacío.'); return; }
+  const turno=prompt('Turno:',emp.turno);
+  if(turno===null) return;
+  const diaLibre=prompt('Día libre:',emp.diaLibre);
+  if(diaLibre===null) return;
+  const salarioStr=prompt('Salario semanal en $:',emp.salarioSemanalUSD);
+  if(salarioStr===null) return;
+  const salario=parseFloat(salarioStr);
+  if(isNaN(salario)||salario<0){ alert('Ingresa un salario válido.'); return; }
+  emp.nombre=nombre.trim();
+  emp.turno=turno.trim();
+  emp.diaLibre=diaLibre.trim();
+  emp.salarioSemanalUSD=salario;
+  emp._ts=Date.now();
+  guardarJSON('guayoyo_empleados',empleados);
+  sincronizarEnNube('empleado',emp);
+  renderEmpleados();
+  showToast('✅ Empleado actualizado');
+}
+
 function abrirHorasExtra(empId){
   const horasStr=prompt('¿Cuántas horas extra trabajó?','');
   const horas=parseFloat(horasStr);
@@ -1202,7 +1247,7 @@ function abrirHorasExtra(empId){
   const monto=parseFloat(montoStr);
   if(isNaN(monto)||monto<=0) return;
   const tasaHoy=obtenerTasaFecha(todayKey());
-  const tasa=parseFloat(document.getElementById('tasaUSD').value) || (tasaHoy?tasaHoy.tasaUSD:0) || 0;
+  const tasa=parseFloat(document.getElementById('tasaEUR').value) || (tasaHoy?tasaHoy.tasaEUR:0) || 0;
   const mov={id:uid(),empleadoId:empId,fecha:todayKey(),tipo:'extra',horas,montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:null,descripcion:'',_ts:Date.now()};
   const movs=cargarJSON('guayoyo_movimientos_empleado');
   movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
