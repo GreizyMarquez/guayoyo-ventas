@@ -202,6 +202,8 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--azul);color:white;padding:10px 24px;border-radius:20px;font-weight:800;font-size:13px;transition:transform 0.3s;z-index:200;pointer-events:none;}
 .toast.show{transform:translateX(-50%) translateY(0);}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
 </head>
 <body>
 <div class="app-header">
@@ -1137,6 +1139,7 @@ function renderEmpleados(){
           <button onclick="event.stopPropagation();abrirAdelanto('${e.id}')">+ Adelanto</button>
           <button onclick="event.stopPropagation();abrirConsumo('${e.id}')">+ Consumo</button>
           <button onclick="event.stopPropagation();abrirHorasExtra('${e.id}')">+ H. extra</button>
+          <button onclick="event.stopPropagation();generarReciboPDF('${e.id}')">🧾 Recibo PDF</button>
           <button onclick="event.stopPropagation();eliminarEmpleado('${e.id}')">🗑 Eliminar</button>
         </div>
         <div id="emp-movs-${e.id}" style="margin-top:10px;"></div>
@@ -1178,6 +1181,122 @@ function eliminarEmpleado(empId){
   if(empleadoAbierto===empId) empleadoAbierto=null;
   renderEmpleados();
   showToast('🗑 Empleado eliminado');
+}
+
+function generarReciboPDF(empId){
+  const empleados=cargarJSON('guayoyo_empleados');
+  const emp=empleados.find(e=>e.id===empId);
+  if(!emp) return;
+  if(!window.jspdf){ alert('No se pudo cargar el generador de PDF. Revisa tu conexión a internet e intenta de nuevo.'); return; }
+
+  const semana=semanaActual();
+  const r=calcularNetoSemana(empId,semana.desde,semana.hasta);
+  const movs=cargarJSON('guayoyo_movimientos_empleado')
+    .filter(m=>m.empleadoId===empId && m.fecha>=semana.desde && m.fecha<=semana.hasta)
+    .sort((a,b)=>a.fecha.localeCompare(b.fecha));
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({unit:'mm',format:'a4'});
+  const azul='#1B2ED4', rojo='#E8341A', muted='#666660';
+
+  // Encabezado con logo
+  const logoImg=document.querySelector('.logo-img');
+  doc.setFillColor(azul);
+  doc.rect(0,0,210,26,'F');
+  if(logoImg && logoImg.src){
+    try{ doc.addImage(logoImg.src,'PNG',12,5,16,16); }catch(e){ console.warn('No se pudo insertar el logo en el PDF',e); }
+  }
+  doc.setTextColor('#FFFFFF');
+  doc.setFontSize(18);
+  doc.text('GUAYOYO',32,13);
+  doc.setFontSize(11);
+  doc.text('Recibo de pago',32,20);
+
+  doc.setTextColor('#000000');
+  doc.setFontSize(10);
+  doc.text(`Emitido: ${todayKey()}`,150,13);
+
+  // Datos del empleado
+  let y=36;
+  doc.setFontSize(12);
+  doc.setFont(undefined,'bold');
+  doc.text(emp.nombre,14,y);
+  doc.setFont(undefined,'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(muted);
+  y+=6;
+  doc.text(`Turno: ${emp.turno||'—'}   ·   Día libre: ${emp.diaLibre||'—'}`,14,y);
+  y+=5;
+  doc.text(`Semana correspondiente: ${semana.desde} al ${semana.hasta}`,14,y);
+  doc.setTextColor('#000000');
+
+  // Tabla de detalle del pago
+  y+=6;
+  const filas=[
+    ['Salario base (tasa EUR BCV' + (r.tasaEUR?` ${r.tasaEUR}`:'')+')', r.tasaEUR?fmtBs(r.salarioBs):'falta tasa EUR'],
+    [`+ Horas extra${r.totalHorasExtra?` (${r.totalHorasExtra}h)`:''}`, fmtBs(r.horasExtraBs)],
+    ['− Adelantos', '−'+fmtBs(r.adelantosBs)],
+    ['− Consumos (a precio de carta)', '−'+fmt$(r.consumosUSD)],
+  ];
+  doc.autoTable({
+    startY:y,
+    head:[['Concepto','Monto']],
+    body:filas,
+    theme:'plain',
+    styles:{fontSize:10,cellPadding:2},
+    headStyles:{fillColor:azul,textColor:'#FFFFFF'},
+    columnStyles:{1:{halign:'right'}},
+  });
+
+  let y2=doc.lastAutoTable.finalY+4;
+  doc.setFillColor('#F2F0EC');
+  doc.rect(14,y2,182,10,'F');
+  doc.setFont(undefined,'bold');
+  doc.setFontSize(12);
+  doc.text('NETO A PAGAR',18,y2+7);
+  doc.setTextColor(rojo);
+  doc.text(r.tasaEUR?fmtBs(r.netoBs):'—',192,y2+7,{align:'right'});
+  doc.setTextColor('#000000');
+  doc.setFont(undefined,'normal');
+
+  // Detalle de movimientos de la semana
+  y2+=18;
+  if(movs.length){
+    doc.setFontSize(11);
+    doc.setFont(undefined,'bold');
+    doc.text('Detalle de movimientos de la semana',14,y2);
+    doc.setFont(undefined,'normal');
+    const filasMov=movs.map(m=>{
+      const etiqueta = m.tipo==='adelanto' ? 'Adelanto' : m.tipo==='extra' ? `Hora extra (${m.horas||0}h)` : 'Consumo'+(m.descripcion?': '+m.descripcion:'');
+      const valor = m.tipo==='consumo' ? fmt$(m.montoUSD) : fmtBs(m.montoBs);
+      return [m.fecha,etiqueta,valor];
+    });
+    doc.autoTable({
+      startY:y2+4,
+      head:[['Fecha','Concepto','Monto']],
+      body:filasMov,
+      theme:'striped',
+      styles:{fontSize:9,cellPadding:2},
+      headStyles:{fillColor:'#D8D5CC',textColor:'#000000'},
+      columnStyles:{2:{halign:'right'}},
+    });
+    y2=doc.lastAutoTable.finalY+14;
+  } else {
+    y2+=6;
+  }
+
+  // Firmas
+  const yFirma=Math.max(y2+20,250);
+  doc.setDrawColor('#999999');
+  doc.line(20,yFirma,90,yFirma);
+  doc.line(120,yFirma,190,yFirma);
+  doc.setFontSize(9);
+  doc.setTextColor(muted);
+  doc.text('Firma del empleado',30,yFirma+5);
+  doc.text('Firma Guayoyo',140,yFirma+5);
+
+  const nombreArchivo=`Recibo_${emp.nombre.replace(/[^a-zA-Z0-9]+/g,'_')}_${semana.desde}.pdf`;
+  doc.save(nombreArchivo);
 }
 
 function abrirAdelanto(empId){
