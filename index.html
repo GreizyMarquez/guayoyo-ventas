@@ -360,6 +360,14 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 <!-- EMPLEADOS -->
 <div class="page" id="page-empleados">
   <button class="btn-secundario" onclick="agregarEmpleado()" style="margin-bottom:12px;">+ Agregar empleado</button>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;padding:10px 12px;background:var(--blanco);border:2px solid var(--azul);border-radius:12px;">
+    <button onclick="cambiarSemanaEmpleados(-1)" style="border:none;background:none;color:var(--azul);font-size:18px;font-weight:800;padding:4px 10px;cursor:pointer;">◀</button>
+    <div style="text-align:center;">
+      <div id="semanaNavLabel" style="font-size:12px;font-weight:700;color:var(--texto);"></div>
+      <button onclick="irSemanaActualEmpleados()" id="semanaNavHoy" style="border:none;background:none;color:var(--azul);font-size:10px;font-weight:700;text-decoration:underline;cursor:pointer;display:none;padding:2px 0 0;">volver a semana actual</button>
+    </div>
+    <button onclick="cambiarSemanaEmpleados(1)" style="border:none;background:none;color:var(--azul);font-size:18px;font-weight:800;padding:4px 10px;cursor:pointer;">▶</button>
+  </div>
   <div id="empleadosList"></div>
 </div>
 
@@ -474,6 +482,7 @@ const MONEDA_METODO={PM:'BS',POS:'BS',EBS:'BS',EDIV:'USD'};
 let cart={},selectedPay='',currentCat='Todos',modoSplit=false;
 let gastoMoneda='USD',gastoPaySel='';
 let empleadoAbierto=null;
+let semanaOffsetEmpleados=0; // 0 = semana actual, -1 = semana anterior, etc.
 let turnoActual = localStorage.getItem('guayoyo_turno_actual') || (new Date().getHours()<15?'manana':'tarde');
 let intervalSync=null;
 let cobroAbiertoId=null, modoSplitCobro=false;
@@ -491,6 +500,17 @@ function cargarJSON(key){
 }
 function guardarJSON(key,data){
   try{localStorage.setItem(key,JSON.stringify(data));return true;}catch(e){console.warn('No se pudo guardar',key,e);return false;}
+}
+
+// Registra que un elemento fue borrado en este dispositivo (tipo+id+hora).
+// Esto evita que la sincronización lo "resucite" si la nube todavía lo tiene
+// (por ejemplo, porque el borrado en la nube falló, tardó, u otro dispositivo
+// no se había enterado). Se conserva 180 días y luego se limpia solo.
+function registrarBorrado(tipo,id){
+  const corte=Date.now()-1000*60*60*24*180;
+  let borrados=cargarJSON('guayoyo_borrados').filter(b=>b.ts>corte);
+  borrados.push({tipo,id:String(id),ts:Date.now()});
+  guardarJSON('guayoyo_borrados',borrados);
 }
 
 // ---------- Migración de pedidos antiguos (guardados por día) ----------
@@ -1029,8 +1049,19 @@ function marcarFacturaPagada(id){
   f.estado='pagada'; f.fechaPagada=hoy; f.metodoPago=m; f.tasaUsada=tasaUSD; f.montoBs=f.montoUSD*tasaUSD; f._ts=Date.now();
   guardarJSON('guayoyo_facturas',facturas);
   sincronizarEnNube('factura',f);
+
+  // Se refleja automáticamente como gasto del día, para que se descuente del resumen/caja.
+  const gastos=cargarJSON('guayoyo_gastos');
+  const yaExiste=gastos.some(g=>g.facturaId===f.id);
+  if(!yaExiste){
+    const gasto={id:uid(),fecha:hoy,descripcion:'Factura: '+f.descripcion,montoUSD:f.montoUSD,montoBs:f.montoBs,metodo:m,moneda:'USD',facturaId:f.id,_ts:Date.now()};
+    gastos.push(gasto);
+    guardarJSON('guayoyo_gastos',gastos);
+    sincronizarEnNube('gasto',gasto);
+  }
+
   renderFacturas();
-  showToast('✅ Factura marcada como pagada');
+  showToast('✅ Factura marcada como pagada y agregada a gastos');
 }
 
 function eliminarFactura(id){
@@ -1081,11 +1112,12 @@ function renderFacturas(){
 // ======================================================================
 // EMPLEADOS / NÓMINA
 // ======================================================================
-function semanaActual(){
+function semanaActual(){ return semanaConOffset(0); }
+function semanaConOffset(offset){
   const hoy=new Date();
   const dow=hoy.getDay();
   const diffLunes = dow===0 ? -6 : 1-dow;
-  const lunes=new Date(hoy); lunes.setDate(hoy.getDate()+diffLunes);
+  const lunes=new Date(hoy); lunes.setDate(hoy.getDate()+diffLunes+(offset*7));
   const domingo=new Date(lunes); domingo.setDate(lunes.getDate()+6);
   const f=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
   return {desde:f(lunes),hasta:f(domingo)};
@@ -1111,10 +1143,23 @@ function calcularNetoSemana(empId,desde,hasta){
   return {salarioBs,adelantosBs,consumosUSD,consumosBs,horasExtraBs,totalHorasExtra,netoBs,tasaEUR};
 }
 
+function cambiarSemanaEmpleados(delta){
+  semanaOffsetEmpleados+=delta;
+  if(semanaOffsetEmpleados>0) semanaOffsetEmpleados=0; // no hay datos de semanas futuras
+  renderEmpleados();
+}
+function irSemanaActualEmpleados(){
+  semanaOffsetEmpleados=0;
+  renderEmpleados();
+}
 function renderEmpleados(){
   const empleados=cargarJSON('guayoyo_empleados');
   const list=document.getElementById('empleadosList');
-  const semana=semanaActual();
+  const semana=semanaConOffset(semanaOffsetEmpleados);
+  const lbl=document.getElementById('semanaNavLabel');
+  if(lbl) lbl.textContent=(semanaOffsetEmpleados===0?'Semana actual · ':'Semana · ')+semana.desde+' al '+semana.hasta;
+  const btnHoy=document.getElementById('semanaNavHoy');
+  if(btnHoy) btnHoy.style.display=semanaOffsetEmpleados===0?'none':'inline-block';
   list.innerHTML=empleados.map(e=>{
     const abierto=empleadoAbierto===e.id;
     const r=calcularNetoSemana(e.id,semana.desde,semana.hasta);
@@ -1189,7 +1234,7 @@ function generarReciboPDF(empId){
   if(!emp) return;
   if(!window.jspdf){ alert('No se pudo cargar el generador de PDF. Revisa tu conexión a internet e intenta de nuevo.'); return; }
 
-  const semana=semanaActual();
+  const semana=semanaConOffset(semanaOffsetEmpleados);
   const r=calcularNetoSemana(empId,semana.desde,semana.hasta);
   const movs=cargarJSON('guayoyo_movimientos_empleado')
     .filter(m=>m.empleadoId===empId && m.fecha>=semana.desde && m.fecha<=semana.hasta)
@@ -1641,16 +1686,26 @@ async function sincronizarDesdeNube(){
 function fusionar(lsKey,remotos,clave,tipo){
   if(!Array.isArray(remotos)) return;
   const locales=cargarJSON(lsKey);
+  const idsBorrados={};
+  cargarJSON('guayoyo_borrados').filter(b=>b.tipo===tipo).forEach(b=>{ idsBorrados[b.id]=b.ts; });
+
   const mapa={};
-  remotos.forEach(r=>{ mapa[String(r[clave])]=r; });
+  remotos.forEach(r=>{
+    const key=String(r[clave]);
+    // Si este registro fue borrado en este dispositivo y la nube no trae una
+    // versión más nueva que ese borrado, lo ignoramos: no debe resucitar.
+    if(idsBorrados[key]!==undefined && (r._ts||0)<=idsBorrados[key]) return;
+    mapa[key]=r;
+  });
   const aRepush=[];
   locales.forEach(l=>{
     const key=String(l[clave]);
+    if(idsBorrados[key]!==undefined && (l._ts||0)<=idsBorrados[key]) return; // no revivirlo localmente tampoco
     const remoto=mapa[key];
     if(!remoto || (l._ts||0) > (remoto._ts||0)){ mapa[key]=l; aRepush.push(l); }
   });
   const resultado=Object.values(mapa);
-  console.log(`%c[DIAGNOSTICO] ${lsKey}`,'color:green',{remotos:remotos.length,locales:locales.length,resultadoFinal:resultado.length,aResubir:aRepush.length});
+  console.log(`%c[DIAGNOSTICO] ${lsKey}`,'color:green',{remotos:remotos.length,locales:locales.length,resultadoFinal:resultado.length,aResubir:aRepush.length,borrados:Object.keys(idsBorrados).length});
   guardarJSON(lsKey,resultado);
   aRepush.forEach((item,i)=>setTimeout(()=>sincronizarEnNube(tipo,item), i*250));
 }
@@ -1664,6 +1719,7 @@ async function sincronizarEnNube(tipo,registro){
   }catch(e){ console.warn(`%c[DIAGNOSTICO] fallo al subir ${tipo}`,'color:red',e); mostrarEstadoSync('error'); }
 }
 async function eliminarEnNube(tipo,id){
+  registrarBorrado(tipo,id);
   if(!APPS_SCRIPT_URL_GUAYOYO) return;
   try{
     const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO,{method:'POST',body:JSON.stringify({accion:'eliminar',tipo,id})});
