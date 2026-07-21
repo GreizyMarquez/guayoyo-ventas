@@ -972,8 +972,61 @@ function agregarGasto(){
   renderGastos();
   showToast('✅ Gasto registrado');
 }
+function editarGasto(id){
+  const gastos=cargarJSON('guayoyo_gastos');
+  const g=gastos.find(x=>x.id===id);
+  if(!g) return;
+  if(g.facturaId){ alert('Este gasto viene de una factura marcada como pagada. Para modificarlo, edítalo desde la pestaña "Facturas" así queda todo sincronizado.'); return; }
+
+  const desc=prompt('Descripción:',g.descripcion);
+  if(desc===null) return;
+  if(!desc.trim()){ alert('La descripción no puede quedar vacía.'); return; }
+
+  const monedaStr=prompt('¿El monto está en USD o BS? Escribe: USD o BS',g.moneda||'USD');
+  if(monedaStr===null) return;
+  const moneda=monedaStr.trim().toUpperCase();
+  if(moneda!=='USD' && moneda!=='BS'){ alert('Escribe USD o BS.'); return; }
+
+  const montoActual = moneda==='USD' ? g.montoUSD : g.montoBs;
+  const montoStr=prompt(`Monto en ${moneda}:`,montoActual);
+  if(montoStr===null) return;
+  const montoInput=parseFloat(montoStr);
+  if(isNaN(montoInput)||montoInput<=0){ alert('Ingresa un monto válido.'); return; }
+
+  const fechaStr=prompt('Fecha (AAAA-MM-DD):',g.fecha);
+  if(fechaStr===null) return;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(fechaStr.trim())){ alert('Formato de fecha no válido. Usa AAAA-MM-DD.'); return; }
+
+  const metodoStr=prompt('Método de pago (PM, POS, EBS, EDIV o MIXTO):',g.metodo);
+  if(metodoStr===null) return;
+  const metodo=metodoStr.trim().toUpperCase();
+  if(!PAY_LABELS[metodo]){ alert('Método no válido.'); return; }
+
+  const fecha=fechaStr.trim();
+  const tasaInfo = obtenerTasaFecha(fecha) || obtenerTasaFecha(todayKey());
+  const tasa = tasaInfo ? tasaInfo.tasaUSD : 0;
+
+  let montoUSD,montoBs;
+  if(moneda==='USD'){ montoUSD=montoInput; montoBs=tasa>0?montoInput*tasa:null; }
+  else { montoBs=montoInput; montoUSD=tasa>0?montoInput/tasa:null; }
+
+  g.descripcion=desc.trim();
+  g.moneda=moneda;
+  g.montoUSD=montoUSD;
+  g.montoBs=montoBs;
+  g.fecha=fecha;
+  g.metodo=metodo;
+  g._ts=Date.now();
+
+  guardarJSON('guayoyo_gastos',gastos);
+  sincronizarEnNube('gasto',g);
+  renderGastos();
+  showToast('✅ Gasto actualizado');
+}
 function eliminarGasto(id){
   let gastos=cargarJSON('guayoyo_gastos');
+  const g=gastos.find(x=>x.id===id);
+  if(g && g.facturaId){ alert('Este gasto viene de una factura marcada como pagada. Para eliminarlo, hazlo desde la pestaña "Facturas" así queda todo sincronizado.'); return; }
   gastos=gastos.filter(g=>g.id!==id);
   guardarJSON('guayoyo_gastos',gastos);
   eliminarEnNube('gasto',id);
@@ -990,7 +1043,8 @@ function renderGastos(){
     <div class="list-item">
       <div class="list-item-info">
         <div class="list-item-title">${g.descripcion}</div>
-        <div class="list-item-sub"><span class="order-pay-tag ${PAY_CLASS[g.metodo]}">${PAY_LABELS[g.metodo]}</span></div>
+        <div class="list-item-sub"><span class="order-pay-tag ${PAY_CLASS[g.metodo]}">${PAY_LABELS[g.metodo]}</span>${g.facturaId?' <span style="font-size:10px;color:var(--muted);">🧾 desde factura</span>':''}</div>
+        ${g.facturaId ? '' : `<button class="list-item-del" onclick="editarGasto('${g.id}')">editar</button>`}
         <button class="list-item-del" onclick="eliminarGasto('${g.id}')">eliminar</button>
       </div>
       <div class="list-item-amount">${fmt$(g.montoUSD)}${g.montoBs?`<div style="font-size:10px;color:var(--muted);font-weight:500;">${fmtBs(g.montoBs)}</div>`:''}</div>
@@ -1064,12 +1118,89 @@ function marcarFacturaPagada(id){
   showToast('✅ Factura marcada como pagada y agregada a gastos');
 }
 
-function eliminarFactura(id){
-  let facturas=cargarJSON('guayoyo_facturas');
-  facturas=facturas.filter(f=>f.id!==id);
+function editarFactura(id){
+  const facturas=cargarJSON('guayoyo_facturas');
+  const f=facturas.find(x=>x.id===id);
+  if(!f) return;
+
+  const desc=prompt('Descripción:',f.descripcion);
+  if(desc===null) return;
+  if(!desc.trim()){ alert('La descripción no puede quedar vacía.'); return; }
+
+  const montoStr=prompt('Monto en $:',f.montoUSD);
+  if(montoStr===null) return;
+  const monto=parseFloat(montoStr);
+  if(isNaN(monto)||monto<=0){ alert('Ingresa un monto válido.'); return; }
+
+  f.descripcion=desc.trim();
+  f.montoUSD=monto;
+
+  if(f.estado==='pendiente'){
+    const fechaStr=prompt('Fecha de pago (AAAA-MM-DD):',f.fechaPago);
+    if(fechaStr===null) return;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(fechaStr.trim())){ alert('Formato de fecha no válido. Usa AAAA-MM-DD.'); return; }
+    f.fechaPago=fechaStr.trim();
+  } else if(f.estado==='pagada'){
+    const fechaStr=prompt('Fecha en que se pagó (AAAA-MM-DD):',f.fechaPagada);
+    if(fechaStr===null) return;
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(fechaStr.trim())){ alert('Formato de fecha no válido. Usa AAAA-MM-DD.'); return; }
+    f.fechaPagada=fechaStr.trim();
+
+    const metodoStr=prompt('Método de pago (PM, POS, EBS o EDIV):',f.metodoPago);
+    if(metodoStr===null) return;
+    const m=metodoStr.trim().toUpperCase();
+    if(!PAY_LABELS[m] || m==='MIXTO'){ alert('Método no válido.'); return; }
+    f.metodoPago=m;
+
+    // La tasa usada no se toca (fue la tasa vigente el día que se pagó);
+    // solo se recalcula el equivalente en Bs con el nuevo monto en $.
+    if(f.tasaUsada) f.montoBs=f.montoUSD*f.tasaUsada;
+  }
+
+  f._ts=Date.now();
   guardarJSON('guayoyo_facturas',facturas);
-  eliminarEnNube('factura',id);
+  sincronizarEnNube('factura',f);
+
+  // Si esta factura ya había generado un gasto automático, lo actualizamos también.
+  if(f.estado==='pagada'){
+    const gastos=cargarJSON('guayoyo_gastos');
+    const gastoLigado=gastos.find(g=>g.facturaId===f.id);
+    if(gastoLigado){
+      gastoLigado.descripcion='Factura: '+f.descripcion;
+      gastoLigado.montoUSD=f.montoUSD;
+      gastoLigado.montoBs=f.montoBs;
+      gastoLigado.metodo=f.metodoPago;
+      gastoLigado.fecha=f.fechaPagada;
+      gastoLigado._ts=Date.now();
+      guardarJSON('guayoyo_gastos',gastos);
+      sincronizarEnNube('gasto',gastoLigado);
+    }
+  }
+
   renderFacturas();
+  renderGastos();
+  showToast('✅ Factura actualizada');
+}
+
+function eliminarFactura(id){
+  const facturas=cargarJSON('guayoyo_facturas');
+  const f=facturas.find(x=>x.id===id);
+  if(!f) return;
+  const gastos=cargarJSON('guayoyo_gastos');
+  const gastoLigado=gastos.find(g=>g.facturaId===id);
+  if(gastoLigado && !confirm('Esta factura ya generó un gasto al marcarla pagada. Si la eliminas, también se eliminará ese gasto. ¿Continuar?')) return;
+
+  const restantes=facturas.filter(x=>x.id!==id);
+  guardarJSON('guayoyo_facturas',restantes);
+  eliminarEnNube('factura',id);
+
+  if(gastoLigado){
+    const gastosRestantes=gastos.filter(g=>g.id!==gastoLigado.id);
+    guardarJSON('guayoyo_gastos',gastosRestantes);
+    eliminarEnNube('gasto',gastoLigado.id);
+  }
+  renderFacturas();
+  renderGastos();
 }
 function toggleFacturasPagadas(){
   const box=document.getElementById('facturasPagadasList');
@@ -1089,6 +1220,7 @@ function renderFacturas(){
       <div class="list-item-info">
         <div class="list-item-title">${f.descripcion}<span class="estado-tag estado-pendiente">pendiente</span></div>
         <div class="list-item-sub">Pagar el ${f.fechaPago}</div>
+        <button class="list-item-del" onclick="editarFactura('${f.id}')">editar</button>
         <button class="list-item-del" onclick="eliminarFactura('${f.id}')">eliminar</button>
         <button class="list-item-del" style="color:var(--azul);" onclick="marcarFacturaPagada('${f.id}')">marcar pagada</button>
       </div>
@@ -1104,6 +1236,8 @@ function renderFacturas(){
       <div class="list-item-info">
         <div class="list-item-title">${f.descripcion}<span class="estado-tag estado-pagada">pagada</span></div>
         <div class="list-item-sub">${f.fechaPagada} · ${PAY_LABELS[f.metodoPago]} · tasa ${f.tasaUsada}</div>
+        <button class="list-item-del" onclick="editarFactura('${f.id}')">editar</button>
+        <button class="list-item-del" onclick="eliminarFactura('${f.id}')">eliminar</button>
       </div>
       <div class="list-item-amount">${fmt$(f.montoUSD)}<div style="font-size:10px;color:var(--muted);font-weight:500;">${fmtBs(f.montoBs)}</div></div>
     </div>`).join('') : '<div class="empty"><div class="empty-icon">🧾</div>Sin facturas pagadas</div>';
@@ -1541,7 +1675,7 @@ function calcularGananciasRango(desde,hasta){
 
   const ventasTotalesUSD=ventasPedidosUSD+consumosUSD;
 
-  const gastosUSD=cargarJSON('guayoyo_gastos').filter(g=>g.fecha>=desde && g.fecha<=hasta).reduce((s,g)=>s+(g.montoUSD||0),0);
+  const gastosUSD=cargarJSON('guayoyo_gastos').filter(g=>g.fecha>=desde && g.fecha<=hasta && !g.facturaId).reduce((s,g)=>s+(g.montoUSD||0),0);
 
   const facturasUSD=cargarJSON('guayoyo_facturas').filter(f=>f.estado==='pagada' && f.fechaPagada>=desde && f.fechaPagada<=hasta).reduce((s,f)=>s+(f.montoUSD||0),0);
 
@@ -1559,17 +1693,24 @@ function renderGanancias(){
   const hasta=document.getElementById('gananciaHasta').value;
   if(!desde||!hasta) return;
   const r=calcularGananciasRango(desde,hasta);
+  const tasaInfo=obtenerTasaFecha(hasta);
+  const tasa=tasaInfo?tasaInfo.tasaUSD:0;
+  const sub=v=>tasa?`<div style="font-size:10px;color:var(--muted);font-weight:500;">${fmtBs(v*tasa)}</div>`:'';
   const el=document.getElementById('gananciasContent');
   el.innerHTML=`
-    <div class="summary-row"><span>Ventas (${r.numPedidos} pedidos)</span><span class="val" style="color:var(--azul)">+${fmt$(r.ventasPedidosUSD)}</span></div>
-    <div class="summary-row"><span>Consumos del equipo (venta a precio de carta)</span><span class="val" style="color:var(--azul)">+${fmt$(r.consumosUSD)}</span></div>
-    <div class="summary-row"><span>− Gastos</span><span class="val">−${fmt$(r.gastosUSD)}</span></div>
-    <div class="summary-row"><span>− Facturas pagadas</span><span class="val">−${fmt$(r.facturasUSD)}</span></div>
-    <div class="summary-row"><span>− Nómina (salarios + horas extra)</span><span class="val">−${fmt$(r.nominaUSD)}</span></div>
+    <div class="summary-row"><span>Ventas (${r.numPedidos} pedidos)</span><span class="val" style="text-align:right;color:var(--azul)">+${fmt$(r.ventasPedidosUSD)}${sub(r.ventasPedidosUSD)}</span></div>
+    <div class="summary-row"><span>Consumos del equipo (venta a precio de carta)</span><span class="val" style="text-align:right;color:var(--azul)">+${fmt$(r.consumosUSD)}${sub(r.consumosUSD)}</span></div>
+    <div class="summary-row"><span>− Gastos</span><span class="val" style="text-align:right;">−${fmt$(r.gastosUSD)}${sub(r.gastosUSD)}</span></div>
+    <div class="summary-row"><span>− Facturas pagadas</span><span class="val" style="text-align:right;">−${fmt$(r.facturasUSD)}${sub(r.facturasUSD)}</span></div>
+    <div class="summary-row"><span>− Nómina (salarios + horas extra)</span><span class="val" style="text-align:right;">−${fmt$(r.nominaUSD)}${sub(r.nominaUSD)}</span></div>
     <div class="summary-total-row">
       <span>Ganancia neta</span>
-      <span style="color:${r.gananciaNeta>=0?'#166534':'#c0392b'}">${fmt$(r.gananciaNeta)}</span>
+      <span style="text-align:right;">
+        <div style="color:${r.gananciaNeta>=0?'#166534':'#c0392b'}">${fmt$(r.gananciaNeta)}</div>
+        ${tasa?`<div style="font-size:11px;font-weight:700;color:${r.gananciaNeta>=0?'#166534':'#c0392b'};">${fmtBs(r.gananciaNeta*tasa)}</div>`:''}
+      </span>
     </div>
+    ${tasa?`<div style="font-size:10px;color:var(--muted);margin-top:6px;">Bs calculado con la tasa del ${hasta}</div>`:''}
   `;
 }
 
@@ -1579,21 +1720,37 @@ function renderGanancias(){
 function calcularBalancePorMetodo(dk){
   const apertura=obtenerAperturaFecha(dk);
   const tasaInfo=obtenerTasaFecha(dk);
+  const tasa=tasaInfo?tasaInfo.tasaUSD:0;
   const aperturaUSDenBs = apertura.aperturaUSD||0;
-  const balance={PM:0,POS:0,EBS:apertura.aperturaBs && tasaInfo && tasaInfo.tasaUSD ? apertura.aperturaBs/tasaInfo.tasaUSD : 0,EDIV:aperturaUSDenBs};
+  const balance={PM:0,POS:0,EBS:apertura.aperturaBs && tasa ? apertura.aperturaBs/tasa : 0,EDIV:aperturaUSDenBs};
+  const balanceBs={PM:0,POS:0,EBS:apertura.aperturaBs||0,EDIV:tasa?aperturaUSDenBs*tasa:0};
   getOrders(dk).filter(o=>o.estado==='pagado').forEach(o=>{
-    pagosDe(o).forEach(p=>{ if(balance[p.metodo]!==undefined) balance[p.metodo]+=(p.montoUSD||0); });
+    pagosDe(o).forEach(p=>{
+      if(balance[p.metodo]!==undefined){
+        balance[p.metodo]+=(p.montoUSD||0);
+        balanceBs[p.metodo]+=(p.montoBs!=null?p.montoBs:(tasa?(p.montoUSD||0)*tasa:0));
+      }
+    });
   });
-  cargarJSON('guayoyo_gastos').filter(g=>g.fecha===dk).forEach(g=>{
-    if(balance[g.metodo]!==undefined) balance[g.metodo]-=(g.montoUSD||0);
+  cargarJSON('guayoyo_gastos').filter(g=>g.fecha===dk && !g.facturaId).forEach(g=>{
+    if(balance[g.metodo]!==undefined){
+      balance[g.metodo]-=(g.montoUSD||0);
+      balanceBs[g.metodo]-=(g.montoBs!=null?g.montoBs:(tasa?(g.montoUSD||0)*tasa:0));
+    }
   });
   cargarJSON('guayoyo_facturas').filter(f=>f.estado==='pagada' && f.fechaPagada===dk).forEach(f=>{
-    if(balance[f.metodoPago]!==undefined) balance[f.metodoPago]-=(f.montoUSD||0);
+    if(balance[f.metodoPago]!==undefined){
+      balance[f.metodoPago]-=(f.montoUSD||0);
+      balanceBs[f.metodoPago]-=(f.montoBs!=null?f.montoBs:(tasa?(f.montoUSD||0)*tasa:0));
+    }
   });
   cargarJSON('guayoyo_movimientos_empleado').filter(m=>m.tipo==='adelanto' && m.fecha===dk).forEach(m=>{
-    if(balance[m.metodo]!==undefined) balance[m.metodo]-=(m.montoUSD||0);
+    if(balance[m.metodo]!==undefined){
+      balance[m.metodo]-=(m.montoUSD||0);
+      balanceBs[m.metodo]-=(m.montoBs!=null?m.montoBs:(tasa?(m.montoUSD||0)*tasa:0));
+    }
   });
-  return balance;
+  return {usd:balance,bs:balanceBs};
 }
 
 function renderResumen(){
@@ -1616,6 +1773,8 @@ function renderResumen(){
     });
   });
   const balance=calcularBalancePorMetodo(dk);
+  const tasaHoy=obtenerTasaFecha(dk);
+  const tasaDia=tasaHoy?tasaHoy.tasaUSD:0;
   const dateLabel=new Date(dk+'T12:00:00').toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});
   el.innerHTML=`
     <div class="summary-date">${dateLabel}</div>
@@ -1635,7 +1794,7 @@ function renderResumen(){
         <div class="summary-row">
           <span><span class="order-pay-tag ${PAY_CLASS[pay]}" style="margin-right:6px;">${PAY_LABELS[pay]}</span>
           <span style="color:var(--muted);font-size:11px;">${d.count} uso${d.count>1?'s':''}</span></span>
-          <span class="val">$${d.usd.toFixed(2)}</span>
+          <span class="val" style="text-align:right;">$${d.usd.toFixed(2)}${d.bs?`<div style="font-size:10px;color:var(--muted);font-weight:500;">Bs ${d.bs.toFixed(2)}</div>`:''}</span>
         </div>`).join('')}
     </div>
     <div class="summary-card">
@@ -1643,7 +1802,10 @@ function renderResumen(){
       ${Object.keys(PAY_LABELS).filter(m=>m!=='MIXTO').map(m=>`
         <div class="balance-row">
           <span>${PAY_LABELS[m]}</span>
-          <span class="${balance[m]>=0?'balance-pos':'balance-neg'}">${fmt$(balance[m])}</span>
+          <span style="text-align:right;">
+            <div class="${balance.usd[m]>=0?'balance-pos':'balance-neg'}">${fmt$(balance.usd[m])}</div>
+            <div style="font-size:10px;color:var(--muted);font-weight:500;">${fmtBs(balance.bs[m])}</div>
+          </span>
         </div>`).join('')}
     </div>
     <div class="summary-card">
@@ -1651,7 +1813,7 @@ function renderResumen(){
       ${Object.entries(byProduct).sort((a,b)=>b[1].qty-a[1].qty).map(([name,d])=>`
         <div class="summary-row">
           <span>${d.qty}× ${name}</span>
-          <span class="val">$${d.usd.toFixed(2)}</span>
+          <span class="val" style="text-align:right;">$${d.usd.toFixed(2)}${tasaDia?`<div style="font-size:10px;color:var(--muted);font-weight:500;">Bs ${(d.usd*tasaDia).toFixed(2)}</div>`:''}</span>
         </div>`).join('')}
     </div>`;
 }
@@ -1679,11 +1841,6 @@ async function sincronizarDesdeNube(){
   }catch(e){ console.warn('%c[DIAGNOSTICO] fallo al sincronizar desde la nube','color:red',e); return false; }
 }
 
-// Combina lo que llega de la nube con lo que ya está en este dispositivo,
-// comparando cuál versión es más reciente (campo _ts). Si un registro
-// local es más nuevo que el de la nube (por ejemplo, la nube todavía no
-// terminó de procesar el guardado anterior), se conserva el local y se
-// reintenta subir — nunca se pierde el cambio más reciente.
 // Combina los "borrados" que reporta la nube (hechos desde CUALQUIER
 // dispositivo, incluyendo el de tu familiar) con los que ya conoce este
 // dispositivo, quedándose con la fecha más reciente de cada uno. Así, si
@@ -1701,6 +1858,12 @@ function fusionarBorrados(remotos){
   guardarJSON('guayoyo_borrados',Object.values(mapa));
 }
 
+// Combina lo que llega de la nube con lo que ya está en este dispositivo,
+// comparando cuál versión es más reciente (campo _ts). Si un registro
+// local es más nuevo que el de la nube (por ejemplo, la nube todavía no
+// terminó de procesar el guardado anterior), se conserva el local y se
+// reintenta subir — nunca se pierde el cambio más reciente. Además respeta
+// los borrados (arriba) para no resucitar algo que ya se eliminó.
 function fusionar(lsKey,remotos,clave,tipo){
   if(!Array.isArray(remotos)) return;
   const locales=cargarJSON(lsKey);
