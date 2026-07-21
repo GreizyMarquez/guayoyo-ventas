@@ -1666,6 +1666,7 @@ async function sincronizarDesdeNube(){
     if(!resp.ok) throw new Error('respuesta no OK: '+resp.status);
     const data=await resp.json();
     console.log('%c[DIAGNOSTICO] datos recibidos de la nube','color:blue',data);
+    fusionarBorrados(data.borrados);
     fusionar('guayoyo_tasas_historial',data.tasas,'fecha','tasa');
     fusionar('guayoyo_pedidos',data.pedidos,'id','pedido');
     fusionar('guayoyo_gastos',data.gastos,'id','gasto');
@@ -1683,6 +1684,23 @@ async function sincronizarDesdeNube(){
 // local es más nuevo que el de la nube (por ejemplo, la nube todavía no
 // terminó de procesar el guardado anterior), se conserva el local y se
 // reintenta subir — nunca se pierde el cambio más reciente.
+// Combina los "borrados" que reporta la nube (hechos desde CUALQUIER
+// dispositivo, incluyendo el de tu familiar) con los que ya conoce este
+// dispositivo, quedándose con la fecha más reciente de cada uno. Así, si
+// alguien borra algo desde su teléfono, el otro también deja de mostrarlo
+// y no lo vuelve a subir por accidente con una copia vieja.
+function fusionarBorrados(remotos){
+  if(!Array.isArray(remotos) || !remotos.length) return;
+  const locales=cargarJSON('guayoyo_borrados');
+  const mapa={};
+  locales.forEach(b=>{ mapa[b.tipo+'|'+b.id]=b; });
+  remotos.forEach(b=>{
+    const key=b.tipo+'|'+b.id;
+    if(!mapa[key] || (b.ts||0) > (mapa[key].ts||0)) mapa[key]={tipo:b.tipo,id:String(b.id),ts:b.ts||0};
+  });
+  guardarJSON('guayoyo_borrados',Object.values(mapa));
+}
+
 function fusionar(lsKey,remotos,clave,tipo){
   if(!Array.isArray(remotos)) return;
   const locales=cargarJSON(lsKey);
