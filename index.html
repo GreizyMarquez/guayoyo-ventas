@@ -420,8 +420,8 @@ function guardarJSON(key,data){
 function seedEmpleados(){
   if(localStorage.getItem('guayoyo_empleados')) return;
   guardarJSON('guayoyo_empleados',[
-    {id:uid(),nombre:'Empleado 1',turno:'Mañana 6:00 - 14:00',diaLibre:'Martes',salarioSemanalUSD:50,_ts:Date.now()},
-    {id:uid(),nombre:'Empleado 2',turno:'Tarde 12:00 - 20:00',diaLibre:'Martes',salarioSemanalUSD:50,_ts:Date.now()},
+    {id:'emp_yenis',nombre:'Yenis',turno:'Mañana 6:00 - 14:00',diaLibre:'Martes',salarioSemanalUSD:50,_ts:Date.now()},
+    {id:'emp_danny',nombre:'Danny',turno:'Tarde 12:00 - 20:00',diaLibre:'Martes',salarioSemanalUSD:50,_ts:Date.now()},
   ]);
 }
 
@@ -1344,43 +1344,55 @@ function guardarCapitalInicial(){
 
 function calcularBalance(){
   const balance={efectivoBs:0,efectivoUSD:0,bancoBs:0};
+  const hoy=todayKey();
   const capital=cargarJSON('guayoyo_capital')[0];
   if(capital){
     balance.efectivoBs+=(capital.efectivoBs||0);
     balance.efectivoUSD+=(capital.efectivoUSD||0);
     balance.bancoBs+=(capital.bancoBs||0);
   }
+
+  // El Pago Móvil cae directo al banco. El POS el banco lo deposita al
+  // día siguiente, así que el POS de HOY todavía no cuenta en "Banco".
+  function aplicar(fecha,metodo,montoBs,montoUSD,signo){
+    if(metodo==='EDIV'){ balance.efectivoUSD+=signo*(montoUSD||0); return; }
+    if(metodo==='EBS'){ balance.efectivoBs+=signo*(montoBs||0); return; }
+    if(metodo==='PM'){ balance.bancoBs+=signo*(montoBs||0); return; }
+    if(metodo==='POS'){ if(fecha<hoy){ balance.bancoBs+=signo*(montoBs||0); } return; }
+  }
+
   cargarJSON('guayoyo_pedidos').forEach(function(o){
-    pagosDe(o).forEach(function(p){
-      const bucket=METODO_A_BUCKET[p.metodo];
-      if(bucket==='efectivoUSD') balance.efectivoUSD+=(p.montoUSD||0);
-      else if(bucket) balance[bucket]+=(p.montoBs||0);
-    });
+    pagosDe(o).forEach(function(p){ aplicar(o.fecha,p.metodo,p.montoBs,p.montoUSD,1); });
   });
   cargarJSON('guayoyo_gastos').forEach(function(g){
-    const bucket=METODO_A_BUCKET[g.metodo];
-    if(bucket==='efectivoUSD') balance.efectivoUSD-=(g.montoUSD||0);
-    else if(bucket) balance[bucket]-=(g.montoBs||0);
+    aplicar(g.fecha,g.metodo,g.montoBs,g.montoUSD,-1);
   });
   cargarJSON('guayoyo_facturas').filter(function(f){return f.estado==='pagada';}).forEach(function(f){
-    const bucket=METODO_A_BUCKET[f.metodoPago];
-    if(bucket==='efectivoUSD') balance.efectivoUSD-=(f.montoUSD||0);
-    else if(bucket) balance[bucket]-=(f.montoBs||0);
+    aplicar(f.fechaPagada,f.metodoPago,f.montoBs,f.montoUSD,-1);
   });
   cargarJSON('guayoyo_pagos_nomina').forEach(function(p){
-    const bucket=METODO_A_BUCKET[p.metodoPago];
-    if(bucket==='efectivoUSD') balance.efectivoUSD-=(p.netoUSD||0);
-    else if(bucket) balance[bucket]-=(p.netoBs||0);
+    aplicar(p.fecha,p.metodoPago,p.netoBs,p.netoUSD,-1);
   });
   return balance;
 }
 
+function calcularPosPendiente(){
+  const hoy=todayKey();
+  let pendienteUSD=0;
+  cargarJSON('guayoyo_pedidos').filter(function(o){return o.fecha===hoy;}).forEach(function(o){
+    pagosDe(o).forEach(function(p){ if(p.metodo==='POS') pendienteUSD+=(p.montoUSD||0); });
+  });
+  return pendienteUSD;
+}
+
 function renderBalance(){
   const b=calcularBalance();
+  const posPendiente=calcularPosPendiente();
   const el=document.getElementById('balanceContent');
   el.innerHTML='<div class="balance-row"><span>💴 Efectivo Bs</span><span class="'+(b.efectivoBs>=0?'balance-pos':'balance-neg')+'">'+fmtBs(b.efectivoBs)+'</span></div>'+
     '<div class="balance-row"><span>💵 Efectivo $</span><span class="'+(b.efectivoUSD>=0?'balance-pos':'balance-neg')+'">'+fmt$(b.efectivoUSD)+'</span></div>'+
-    '<div class="balance-row"><span>🏦 Banco Bs</span><span class="'+(b.bancoBs>=0?'balance-pos':'balance-neg')+'">'+fmtBs(b.bancoBs)+'</span></div>';
+    '<div class="balance-row"><span>🏦 Banco Bs</span><span class="'+(b.bancoBs>=0?'balance-pos':'balance-neg')+'">'+fmtBs(b.bancoBs)+'</span></div>'+
+    (posPendiente>0.001 ? '<div style="font-size:11px;color:var(--muted);margin-top:8px;">🕐 POS de hoy: <b>$'+posPendiente.toFixed(2)+'</b> — se suma al Banco mañana</div>' : '');
   const capital=cargarJSON('guayoyo_capital')[0];
   if(capital){
     const eb=document.getElementById('capitalEfectivoBs');
