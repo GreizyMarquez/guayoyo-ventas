@@ -406,6 +406,14 @@ let cobroAbiertoId=null;
 const APPS_SCRIPT_URL_GUAYOYO = 'https://script.google.com/macros/s/AKfycbwdxi88h5nwRn6MMWdbIe9pVZe2mfTmP33Tlgsw8-bl7QZJ7j5Qeb2mZ7w94oKhAppexA/exec';
 
 function todayKey(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function horaAhora12h(){
+  const d=new Date();
+  let h=d.getHours();
+  const m=String(d.getMinutes()).padStart(2,'0');
+  const ampm=h>=12?'PM':'AM';
+  h=h%12; if(h===0) h=12;
+  return h+':'+m+' '+ampm;
+}
 function uid(){return Date.now()+'_'+Math.random().toString(36).slice(2,8);}
 function fmt$(n){return '$'+(n||0).toFixed(2);}
 function fmtBs(n){return 'Bs '+(n||0).toFixed(2);}
@@ -619,7 +627,7 @@ function guardarPedido(){
   }
 
   const orders=getOrders(dk);const num=orders.length+1;
-  const horaAhora=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  const horaAhora=horaAhora12h();
   const nuevoPedido={
     id:uid(),num:num,fecha:dk,time:horaAhora,horaPago:horaAhora,
     items:items,totalUSD:totalUSD,totalBs:tasa>0?totalUSD*tasa:null,tasa:tasa,
@@ -659,7 +667,7 @@ function dejarPendiente(){
 
   const nuevoPedido={
     id:uid(),num:num,fecha:dk,
-    time:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+    time:horaAhora12h(),
     horaPago:null,
     items:items,totalUSD:totalUSD,totalBs:tasa>0?totalUSD*tasa:null,tasa:tasa,
     pay:null,pagos:[],estado:'abierto',referencia:referencia,_ts:Date.now()
@@ -730,7 +738,7 @@ function renderPedidos(){
   const dk=document.getElementById('pedidosDate').value;
   const orders=getOrders(dk);const list=document.getElementById('pedidosList');
   if(!orders.length){list.innerHTML='<div class="empty"><div class="empty-icon">📋</div>Sin pedidos este día</div>';return;}
-  list.innerHTML=orders.slice().reverse().map(function(o){
+  list.innerHTML=orders.slice().sort(function(a,b){return (b.num||0)-(a.num||0);}).map(function(o){
     if(o.estado==='abierto'){
       return '<div class="order-history-item" style="border-left:5px solid #b07d00;">'+
         '<div class="order-history-header"><span class="order-num">Pedido #'+o.num+' · '+o.time+'</span>'+
@@ -758,7 +766,10 @@ function renderPedidos(){
 
 function getAbiertos(){
   return cargarJSON('guayoyo_pedidos').filter(function(o){return o.estado==='abierto';})
-    .sort(function(a,b){return (a.fecha+a.time).localeCompare(b.fecha+b.time);});
+    .sort(function(a,b){
+      if(a.fecha!==b.fecha) return a.fecha.localeCompare(b.fecha);
+      return (a.num||0)-(b.num||0);
+    });
 }
 
 function renderAbiertas(){
@@ -820,7 +831,7 @@ function completarPago(id,pagos){
   o.estado='pagado';
   o.pagos=pagos;
   o.pay=pagos.length===1?pagos[0].metodo:'MIXTO';
-  o.horaPago=new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+  o.horaPago=horaAhora12h();
   o._ts=Date.now();
   guardarJSON('guayoyo_pedidos',todos);
   sincronizarEnNube('pedido',o);
@@ -1429,7 +1440,7 @@ function cerrarDia(){
 
   const cierre={
     id:uid(),fecha:dk,
-    horaCierre:new Date().toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}),
+    horaCierre:horaAhora12h(),
     numPedidos:pendientes.length,totalUSD:totalUSD,totalBs:totalBs,porMetodo:porMetodo,_ts:Date.now()
   };
   const cierres=cargarJSON('guayoyo_cierres');
