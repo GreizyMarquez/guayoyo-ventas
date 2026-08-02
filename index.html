@@ -481,6 +481,12 @@ function cargarJSON(key){
 function guardarJSON(key,data){
   try{localStorage.setItem(key,JSON.stringify(data));return true;}catch(e){console.warn('No se pudo guardar',key,e);return false;}
 }
+// Como los "borrados" ahora se marcan (no se eliminan del array, para que
+// el borrado se propague bien entre dispositivos), cualquier lectura para
+// mostrar datos o calcular debe usar esta función en vez de cargarJSON.
+function cargarActivos(key){
+  return cargarJSON(key).filter(function(x){ return !x._eliminado; });
+}
 
 function seedEmpleados(){
   if(localStorage.getItem('guayoyo_empleados')) return;
@@ -509,16 +515,16 @@ function onTasaChange(){
   debounceTasa=setTimeout(guardarTasasDeHoy,900);
 }
 function obtenerTasaFecha(fecha){
-  return cargarJSON('guayoyo_tasas_historial').find(r=>r.fecha===fecha) || null;
+  return cargarActivos('guayoyo_tasas_historial').find(r=>r.fecha===fecha) || null;
 }
 function prellenarTasas(){
-  const historial=cargarJSON('guayoyo_tasas_historial').slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const historial=cargarActivos('guayoyo_tasas_historial').slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
   if(!historial.length) return;
   document.getElementById('tasaUSD').value=historial[0].tasaUSD||'';
   document.getElementById('tasaEUR').value=historial[0].tasaEUR||'';
 }
 function renderHistorialTasas(){
-  const historial=cargarJSON('guayoyo_tasas_historial').slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
+  const historial=cargarActivos('guayoyo_tasas_historial').slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
   const box=document.getElementById('historialTasasBox');
   const btn=document.getElementById('btnHistorialTasas');
   const abierto=btn.textContent.trim().startsWith('▾');
@@ -536,7 +542,7 @@ function toggleHistorialTasas(){
   renderHistorialTasas();
 }
 
-function getOrders(dk){ return cargarJSON('guayoyo_pedidos').filter(function(o){return o.fecha===dk;}); }
+function getOrders(dk){ return cargarActivos('guayoyo_pedidos').filter(function(o){return o.fecha===dk;}); }
 function addOrderToStore(o){
   const todos=cargarJSON('guayoyo_pedidos');
   todos.push(o);
@@ -736,7 +742,7 @@ function dejarPendiente(){
 }
 
 function editarPedido(id){
-  const pedido=cargarJSON('guayoyo_pedidos').find(function(p){return p.id===id;});
+  const pedido=cargarActivos('guayoyo_pedidos').find(function(p){return p.id===id;});
   if(!pedido) return;
   editandoPedidoId=id;
 
@@ -779,10 +785,12 @@ function cancelarEdicionPedido(){
 
 function eliminarPedido(id){
   if(!confirm('¿Eliminar este pedido? No se puede deshacer.')) return;
-  let todos=cargarJSON('guayoyo_pedidos');
-  todos=todos.filter(function(p){return p.id!==id;});
+  const todos=cargarJSON('guayoyo_pedidos');
+  const idx=todos.findIndex(function(p){return p.id===id;});
+  if(idx<0) return;
+  todos[idx]=Object.assign({},todos[idx],{_eliminado:true,_ts:Date.now()});
   guardarJSON('guayoyo_pedidos',todos);
-  eliminarEnNube('pedido',id);
+  sincronizarEnNube('pedido',todos[idx]);
   renderPedidos();
   showToast('Pedido eliminado');
 }
@@ -822,7 +830,7 @@ function renderPedidos(){
 }
 
 function getAbiertos(){
-  return cargarJSON('guayoyo_pedidos').filter(function(o){return o.estado==='abierto';})
+  return cargarActivos('guayoyo_pedidos').filter(function(o){return o.estado==='abierto';})
     .sort(function(a,b){
       if(a.fecha!==b.fecha) return a.fecha.localeCompare(b.fecha);
       return (a.num||0)-(b.num||0);
@@ -847,10 +855,12 @@ function renderAbiertas(){
 
 function cancelarAbierta(id){
   if(!confirm('¿Cancelar este pedido pendiente? No se podrá deshacer.')) return;
-  let todos=cargarJSON('guayoyo_pedidos');
-  todos=todos.filter(function(o){return o.id!==id;});
+  const todos=cargarJSON('guayoyo_pedidos');
+  const idx=todos.findIndex(function(o){return o.id===id;});
+  if(idx<0) return;
+  todos[idx]=Object.assign({},todos[idx],{_eliminado:true,_ts:Date.now()});
   guardarJSON('guayoyo_pedidos',todos);
-  eliminarEnNube('pedido',id);
+  sincronizarEnNube('pedido',todos[idx]);
   renderAbiertas();
   showToast('Pedido cancelado');
 }
@@ -998,15 +1008,17 @@ function editarGasto(id){
   document.getElementById('gastoDesc').scrollIntoView({behavior:'smooth'});
 }
 function eliminarGasto(id){
-  let gastos=cargarJSON('guayoyo_gastos');
-  gastos=gastos.filter(function(g){return g.id!==id;});
+  const gastos=cargarJSON('guayoyo_gastos');
+  const idx=gastos.findIndex(function(g){return g.id===id;});
+  if(idx<0) return;
+  gastos[idx]=Object.assign({},gastos[idx],{_eliminado:true,_ts:Date.now()});
   guardarJSON('guayoyo_gastos',gastos);
-  eliminarEnNube('gasto',id);
+  sincronizarEnNube('gasto',gastos[idx]);
   renderGastos();
 }
 function renderGastos(){
   const dk=document.getElementById('gastosDate').value;
-  const gastos=cargarJSON('guayoyo_gastos').filter(function(g){return g.fecha===dk;}).sort(function(a,b){return b.id.localeCompare(a.id);});
+  const gastos=cargarActivos('guayoyo_gastos').filter(function(g){return g.fecha===dk;}).sort(function(a,b){return b.id.localeCompare(a.id);});
   const list=document.getElementById('gastosList');
   if(!gastos.length){ list.innerHTML='<div class="empty"><div class="empty-icon">💸</div>Sin gastos este día</div>'; return; }
   list.innerHTML=gastos.map(function(g){
@@ -1058,7 +1070,7 @@ function agregarFactura(){
   showToast('✅ Factura registrada');
 }
 function editarFactura(id){
-  const factura=cargarJSON('guayoyo_facturas').find(function(f){return f.id===id;});
+  const factura=cargarActivos('guayoyo_facturas').find(function(f){return f.id===id;});
   if(!factura || factura.estado!=='pendiente'){ alert('Solo se pueden editar facturas pendientes.'); return; }
   editandoFacturaId=id;
   document.getElementById('facturaDesc').value=factura.descripcion;
@@ -1101,10 +1113,12 @@ function marcarFacturaPagada(id){
 }
 
 function eliminarFactura(id){
-  let facturas=cargarJSON('guayoyo_facturas');
-  facturas=facturas.filter(function(f){return f.id!==id;});
+  const facturas=cargarJSON('guayoyo_facturas');
+  const idx=facturas.findIndex(function(f){return f.id===id;});
+  if(idx<0) return;
+  facturas[idx]=Object.assign({},facturas[idx],{_eliminado:true,_ts:Date.now()});
   guardarJSON('guayoyo_facturas',facturas);
-  eliminarEnNube('factura',id);
+  sincronizarEnNube('factura',facturas[idx]);
   renderFacturas();
 }
 function toggleFacturasPagadas(){
@@ -1115,7 +1129,7 @@ function toggleFacturasPagadas(){
 }
 
 function renderFacturas(){
-  const todas=cargarJSON('guayoyo_facturas');
+  const todas=cargarActivos('guayoyo_facturas');
   const pendientes=todas.filter(function(f){return f.estado==='pendiente';}).sort(function(a,b){return a.fechaPago.localeCompare(b.fechaPago);});
   const pagadas=todas.filter(function(f){return f.estado==='pagada';}).sort(function(a,b){return (b.fechaPagada||'').localeCompare(a.fechaPagada||'');});
 
@@ -1153,16 +1167,16 @@ function semanaActual(){
 }
 
 function calcularNetoSemana(empId,desde,hasta){
-  const movs=cargarJSON('guayoyo_movimientos_empleado').filter(function(m){return m.empleadoId===empId && m.fecha>=desde && m.fecha<=hasta;});
+  const movs=cargarActivos('guayoyo_movimientos_empleado').filter(function(m){return m.empleadoId===empId && m.fecha>=desde && m.fecha<=hasta;});
   const adelantosBs = movs.filter(function(m){return m.tipo==='adelanto';}).reduce(function(s,m){return s+(m.montoBs||0);},0);
   const consumosUSD = movs.filter(function(m){return m.tipo==='consumo';}).reduce(function(s,m){return s+(m.montoUSD||0);},0);
   const horasExtra = movs.filter(function(m){return m.tipo==='extra';});
   const horasExtraBs = horasExtra.reduce(function(s,m){return s+(m.montoBs||0);},0);
   const totalHorasExtra = horasExtra.reduce(function(s,m){return s+(m.horas||0);},0);
-  const empleados=cargarJSON('guayoyo_empleados');
+  const empleados=cargarActivos('guayoyo_empleados');
   const emp=empleados.find(function(e){return e.id===empId;});
   const salarioUSD = emp?emp.salarioSemanalUSD:0;
-  const historialOrdenado=cargarJSON('guayoyo_tasas_historial').slice().sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
+  const historialOrdenado=cargarActivos('guayoyo_tasas_historial').slice().sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
   const tasaInfo = obtenerTasaFecha(hasta) || obtenerTasaFecha(todayKey()) || historialOrdenado[0];
   const tasaEUR = tasaInfo ? tasaInfo.tasaEUR : 0;
   const tasaUSDRef = tasaInfo ? tasaInfo.tasaUSD : 0;
@@ -1173,11 +1187,11 @@ function calcularNetoSemana(empId,desde,hasta){
 }
 
 function pagosNominaDeEmpleado(empId,desde,hasta){
-  return cargarJSON('guayoyo_pagos_nomina').filter(function(p){return p.empleadoId===empId && p.semanaDesde===desde && p.semanaHasta===hasta;});
+  return cargarActivos('guayoyo_pagos_nomina').filter(function(p){return p.empleadoId===empId && p.semanaDesde===desde && p.semanaHasta===hasta;});
 }
 
 function renderEmpleados(){
-  const empleados=cargarJSON('guayoyo_empleados');
+  const empleados=cargarActivos('guayoyo_empleados');
   const list=document.getElementById('empleadosList');
   const semana=semanaActual();
   list.innerHTML=empleados.map(function(e){
@@ -1235,12 +1249,12 @@ function editarEmpleado(id){
 
 function eliminarEmpleado(id){
   const empleados=cargarJSON('guayoyo_empleados');
-  const emp=empleados.find(function(e){return e.id===id;});
-  if(!emp) return;
-  if(!confirm('¿Borrar a '+emp.nombre+'? Su historial de adelantos/consumos/pagos NO se borra, solo el perfil.')) return;
-  let restantes=empleados.filter(function(e){return e.id!==id;});
-  guardarJSON('guayoyo_empleados',restantes);
-  eliminarEnNube('empleado',id);
+  const idx=empleados.findIndex(function(e){return e.id===id;});
+  if(idx<0) return;
+  if(!confirm('¿Borrar a '+empleados[idx].nombre+'? Su historial de adelantos/consumos/pagos NO se borra, solo el perfil.')) return;
+  empleados[idx]=Object.assign({},empleados[idx],{_eliminado:true,_ts:Date.now()});
+  guardarJSON('guayoyo_empleados',empleados);
+  sincronizarEnNube('empleado',empleados[idx]);
   if(empleadoAbierto===id) empleadoAbierto=null;
   renderEmpleados();
   showToast('Empleado borrado');
@@ -1252,7 +1266,7 @@ function toggleEmpleado(id){
 }
 
 function renderMovimientosEmpleado(empId,semana){
-  const movs=cargarJSON('guayoyo_movimientos_empleado').filter(function(m){return m.empleadoId===empId && m.fecha>=semana.desde && m.fecha<=semana.hasta;}).sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
+  const movs=cargarActivos('guayoyo_movimientos_empleado').filter(function(m){return m.empleadoId===empId && m.fecha>=semana.desde && m.fecha<=semana.hasta;}).sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
   const el=document.getElementById('emp-movs-'+empId);
   if(!el) return;
   if(!movs.length){ el.innerHTML='<div style="font-size:11px;color:var(--muted);">Sin movimientos esta semana.</div>'; return; }
@@ -1267,17 +1281,19 @@ function renderMovimientosEmpleado(empId,semana){
 }
 function eliminarMovimiento(movId,empId){
   if(!confirm('¿Eliminar este movimiento?')) return;
-  let movs=cargarJSON('guayoyo_movimientos_empleado');
-  movs=movs.filter(function(m){return m.id!==movId;});
+  const movs=cargarJSON('guayoyo_movimientos_empleado');
+  const idx=movs.findIndex(function(m){return m.id===movId;});
+  if(idx<0) return;
+  movs[idx]=Object.assign({},movs[idx],{_eliminado:true,_ts:Date.now()});
   guardarJSON('guayoyo_movimientos_empleado',movs);
-  eliminarEnNube('movimiento',movId);
+  sincronizarEnNube('movimiento',movs[idx]);
   renderEmpleados();
   showToast('Movimiento eliminado');
 }
 
 let ultimosPagosRenderizados={};
 function renderPagosEmpleado(empId){
-  const pagos=cargarJSON('guayoyo_pagos_nomina').filter(function(p){return p.empleadoId===empId;}).sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
+  const pagos=cargarActivos('guayoyo_pagos_nomina').filter(function(p){return p.empleadoId===empId;}).sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
   ultimosPagosRenderizados[empId]=pagos;
   const el=document.getElementById('emp-pagos-'+empId);
   if(!el) return;
@@ -1293,10 +1309,12 @@ function renderPagosEmpleado(empId){
 }
 function eliminarPagoNomina(pagoId){
   if(!confirm('¿Eliminar este pago de nómina? Esto revierte el descuento en el balance.')) return;
-  let pagos=cargarJSON('guayoyo_pagos_nomina');
-  pagos=pagos.filter(function(p){return p.id!==pagoId;});
+  const pagos=cargarJSON('guayoyo_pagos_nomina');
+  const idx=pagos.findIndex(function(p){return p.id===pagoId;});
+  if(idx<0) return;
+  pagos[idx]=Object.assign({},pagos[idx],{_eliminado:true,_ts:Date.now()});
   guardarJSON('guayoyo_pagos_nomina',pagos);
-  eliminarEnNube('pago_nomina',pagoId);
+  sincronizarEnNube('pago_nomina',pagos[idx]);
   renderEmpleados();
   renderBalance();
   showToast('Pago eliminado');
@@ -1427,7 +1445,7 @@ function guardarCapitalInicial(){
 function calcularBalance(){
   const balance={efectivoBs:0,efectivoUSD:0,bancoBs:0};
   const hoy=todayKey();
-  const capital=cargarJSON('guayoyo_capital')[0];
+  const capital=cargarActivos('guayoyo_capital')[0];
   if(capital){
     balance.efectivoBs+=(capital.efectivoBs||0);
     balance.efectivoUSD+=(capital.efectivoUSD||0);
@@ -1448,19 +1466,19 @@ function calcularBalance(){
     }
   }
 
-  cargarJSON('guayoyo_pedidos').forEach(function(o){
+  cargarActivos('guayoyo_pedidos').forEach(function(o){
     pagosDe(o).forEach(function(p){ aplicar(o.fecha,p.metodo,p.montoBs,p.montoUSD,1); });
   });
-  cargarJSON('guayoyo_gastos').forEach(function(g){
+  cargarActivos('guayoyo_gastos').forEach(function(g){
     aplicar(g.fecha,g.metodo,g.montoBs,g.montoUSD,-1);
   });
-  cargarJSON('guayoyo_facturas').filter(function(f){return f.estado==='pagada';}).forEach(function(f){
+  cargarActivos('guayoyo_facturas').filter(function(f){return f.estado==='pagada';}).forEach(function(f){
     aplicar(f.fechaPagada,f.metodoPago,f.montoBs,f.montoUSD,-1);
   });
-  cargarJSON('guayoyo_pagos_nomina').forEach(function(p){
+  cargarActivos('guayoyo_pagos_nomina').forEach(function(p){
     aplicar(p.fecha,p.metodoPago,p.netoBs,p.netoUSD,-1);
   });
-  cargarJSON('guayoyo_ahorros').forEach(function(a){
+  cargarActivos('guayoyo_ahorros').forEach(function(a){
     if(a.tipo==='venta'){
       if(a.destino==='efectivoBs') balance.efectivoBs+=(a.montoBs||0);
       else balance.bancoBs+=(a.montoBs||0);
@@ -1476,7 +1494,7 @@ function calcularBalance(){
 function calcularPosPendiente(){
   const hoy=todayKey();
   let pendienteUSD=0;
-  cargarJSON('guayoyo_pedidos').filter(function(o){return o.fecha===hoy;}).forEach(function(o){
+  cargarActivos('guayoyo_pedidos').filter(function(o){return o.fecha===hoy;}).forEach(function(o){
     pagosDe(o).forEach(function(p){ if(p.metodo==='POS') pendienteUSD+=(p.montoUSD||0); });
   });
   return pendienteUSD;
@@ -1484,7 +1502,7 @@ function calcularPosPendiente(){
 
 function calcularDetalleBalance(){
   const hoy=todayKey();
-  const capital=cargarJSON('guayoyo_capital')[0]||{};
+  const capital=cargarActivos('guayoyo_capital')[0]||{};
   const detalle={
     efectivoBs:[{label:'Capital inicial',valor:capital.efectivoBs||0}],
     efectivoUSD:[{label:'Capital inicial',valor:capital.efectivoUSD||0}],
@@ -1505,15 +1523,15 @@ function calcularDetalleBalance(){
   }
 
   const ventasExpandidas=[];
-  cargarJSON('guayoyo_pedidos').forEach(function(o){
+  cargarActivos('guayoyo_pedidos').forEach(function(o){
     pagosDe(o).forEach(function(p){ ventasExpandidas.push({fecha:o.fecha,metodo:p.metodo,montoBs:p.montoBs,montoUSD:p.montoUSD}); });
   });
   sumar(ventasExpandidas,'fecha','metodo','montoBs','montoUSD','+ Ventas',true);
-  sumar(cargarJSON('guayoyo_gastos'),'fecha','metodo','montoBs','montoUSD','− Gastos',false);
-  sumar(cargarJSON('guayoyo_facturas').filter(function(f){return f.estado==='pagada';}),'fechaPagada','metodoPago','montoBs','montoUSD','− Facturas',false);
-  sumar(cargarJSON('guayoyo_pagos_nomina'),'fecha','metodoPago','netoBs','netoUSD','− Nómina',false);
+  sumar(cargarActivos('guayoyo_gastos'),'fecha','metodo','montoBs','montoUSD','− Gastos',false);
+  sumar(cargarActivos('guayoyo_facturas').filter(function(f){return f.estado==='pagada';}),'fechaPagada','metodoPago','montoBs','montoUSD','− Facturas',false);
+  sumar(cargarActivos('guayoyo_pagos_nomina'),'fecha','metodoPago','netoBs','netoUSD','− Nómina',false);
 
-  cargarJSON('guayoyo_ahorros').forEach(function(a){
+  cargarActivos('guayoyo_ahorros').forEach(function(a){
     if(a.tipo==='venta'){
       const bucket=a.destino==='efectivoBs'?'efectivoBs':'bancoBs';
       detalle[bucket].push({label:'+ Venta de ahorros (USDT)',valor:a.montoBs||0});
@@ -1571,7 +1589,7 @@ function renderBalance(){
 // CIERRE DEL DÍA (uno diario, no por turno)
 // ======================================================================
 function ultimoCierreHoraHoy(dk){
-  const cierres=cargarJSON('guayoyo_cierres').filter(function(c){return c.fecha===dk;}).sort(function(a,b){return b.horaCierre.localeCompare(a.horaCierre);});
+  const cierres=cargarActivos('guayoyo_cierres').filter(function(c){return c.fecha===dk;}).sort(function(a,b){return b.horaCierre.localeCompare(a.horaCierre);});
   return cierres.length ? cierres[0].horaCierre : null;
 }
 function pedidosPendientesDeCierre(dk){
@@ -1613,10 +1631,12 @@ function renderCierre(){
 }
 function eliminarCierre(id){
   if(!confirm('¿Eliminar este cierre? Los pedidos que incluía volverán a quedar pendientes de cierre.')) return;
-  let cierres=cargarJSON('guayoyo_cierres');
-  cierres=cierres.filter(function(c){return c.id!==id;});
+  const cierres=cargarJSON('guayoyo_cierres');
+  const idx=cierres.findIndex(function(c){return c.id===id;});
+  if(idx<0) return;
+  cierres[idx]=Object.assign({},cierres[idx],{_eliminado:true,_ts:Date.now()});
   guardarJSON('guayoyo_cierres',cierres);
-  eliminarEnNube('cierre',id);
+  sincronizarEnNube('cierre',cierres[idx]);
   renderCierre();
   showToast('Cierre eliminado');
 }
@@ -1627,7 +1647,7 @@ function toggleHistorialCierres(){
   renderHistorialCierres();
 }
 function renderHistorialCierres(){
-  const cierres=cargarJSON('guayoyo_cierres').slice().sort(function(a,b){return (b.fecha+b.horaCierre).localeCompare(a.fecha+a.horaCierre);});
+  const cierres=cargarActivos('guayoyo_cierres').slice().sort(function(a,b){return (b.fecha+b.horaCierre).localeCompare(a.fecha+a.horaCierre);});
   const btn=document.getElementById('btnHistorialCierres');
   const abierto=btn.textContent.trim().startsWith('▾');
   btn.textContent=(abierto?'▾':'▸')+' ver cierres anteriores ('+cierres.length+')';
@@ -1733,7 +1753,7 @@ let editandoVentaAhorroId=null;
 let destinoVentaSeleccionado='bancoBs';
 
 function editarAhorro(id){
-  const ahorro=cargarJSON('guayoyo_ahorros').find(function(a){return a.id===id;});
+  const ahorro=cargarActivos('guayoyo_ahorros').find(function(a){return a.id===id;});
   if(!ahorro) return;
   if(ahorro.tipo==='venta'){
     editandoVentaAhorroId=id;
@@ -1808,10 +1828,12 @@ function agregarVentaAhorro(){
 
 function eliminarAhorro(id){
   if(!confirm('¿Eliminar este registro de ahorro?')) return;
-  let ahorros=cargarJSON('guayoyo_ahorros');
-  ahorros=ahorros.filter(function(a){return a.id!==id;});
+  const ahorros=cargarJSON('guayoyo_ahorros');
+  const idx=ahorros.findIndex(function(a){return a.id===id;});
+  if(idx<0) return;
+  ahorros[idx]=Object.assign({},ahorros[idx],{_eliminado:true,_ts:Date.now()});
   guardarJSON('guayoyo_ahorros',ahorros);
-  eliminarEnNube('ahorro',id);
+  sincronizarEnNube('ahorro',ahorros[idx]);
   renderAhorros();
 }
 
@@ -1820,7 +1842,7 @@ function renderAhorros(){
   if(btnBanco && !document.getElementById('ventaAhorroDestino-efectivoBs').classList.contains('selected') && !btnBanco.classList.contains('selected')){
     seleccionarDestinoVenta('bancoBs');
   }
-  const ahorros=cargarJSON('guayoyo_ahorros').slice().sort(function(a,b){return (b._ts||0)-(a._ts||0);});
+  const ahorros=cargarActivos('guayoyo_ahorros').slice().sort(function(a,b){return (b._ts||0)-(a._ts||0);});
   let totalCompradoUSDT=0, totalVendidoUSDT=0, totalBsRecibidos=0, totalBsPorVenta=0;
   ahorros.forEach(function(a){
     if(a.tipo==='venta'){ totalVendidoUSDT+=(a.usdt||0); totalBsPorVenta+=(a.montoBs||0); }
