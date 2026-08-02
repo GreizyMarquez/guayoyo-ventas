@@ -1379,13 +1379,18 @@ function calcularBalance(){
     balance.bancoBs+=(capital.bancoBs||0);
   }
 
-  // El Pago Móvil cae directo al banco. El POS el banco lo deposita al
-  // día siguiente, así que el POS de HOY todavía no cuenta en "Banco".
+  // El Pago Móvil cae directo al banco. El POS de una VENTA el banco lo
+  // deposita al día siguiente. El POS de un GASTO/PAGO (tarjeta) sale del
+  // banco de inmediato, igual que cuando pagas con débito.
   function aplicar(fecha,metodo,montoBs,montoUSD,signo){
     if(metodo==='EDIV'){ balance.efectivoUSD+=signo*(montoUSD||0); return; }
     if(metodo==='EBS'){ balance.efectivoBs+=signo*(montoBs||0); return; }
     if(metodo==='PM'){ balance.bancoBs+=signo*(montoBs||0); return; }
-    if(metodo==='POS'){ if(fecha<hoy){ balance.bancoBs+=signo*(montoBs||0); } return; }
+    if(metodo==='POS'){
+      if(signo>0){ if(fecha<hoy){ balance.bancoBs+=(montoBs||0); } }
+      else { balance.bancoBs+=signo*(montoBs||0); }
+      return;
+    }
   }
 
   cargarJSON('guayoyo_pedidos').forEach(function(o){
@@ -1421,15 +1426,15 @@ function calcularDetalleBalance(){
     bancoBs:[{label:'Capital inicial',valor:capital.bancoBs||0}]
   };
 
-  function sumar(lista,campoFecha,campoMetodo,campoBs,campoUSD,prefijo){
+  function sumar(lista,campoFecha,campoMetodo,campoBs,campoUSD,prefijo,esIngreso){
     const t={PM:0,POS:0,EBS:0,EDIV:0};
     lista.forEach(function(item){
       const metodo=item[campoMetodo];
-      if(metodo==='POS' && item[campoFecha]>=hoy) return; // aun no liquidado
+      if(esIngreso && metodo==='POS' && item[campoFecha]>=hoy) return; // venta POS aun no liquidada
       if(t[metodo]!==undefined) t[metodo]+= metodo==='EDIV' ? (item[campoUSD]||0) : (item[campoBs]||0);
     });
     if(t.PM) detalle.bancoBs.push({label:prefijo+' Pago Móvil',valor:t.PM*(prefijo.indexOf('−')===0?-1:1)});
-    if(t.POS) detalle.bancoBs.push({label:prefijo+' POS (liquidado)',valor:t.POS*(prefijo.indexOf('−')===0?-1:1)});
+    if(t.POS) detalle.bancoBs.push({label:prefijo+' POS'+(esIngreso?' (liquidado)':''),valor:t.POS*(prefijo.indexOf('−')===0?-1:1)});
     if(t.EBS) detalle.efectivoBs.push({label:prefijo+' Efectivo Bs',valor:t.EBS*(prefijo.indexOf('−')===0?-1:1)});
     if(t.EDIV) detalle.efectivoUSD.push({label:prefijo+' Efectivo $',valor:t.EDIV*(prefijo.indexOf('−')===0?-1:1)});
   }
@@ -1438,10 +1443,10 @@ function calcularDetalleBalance(){
   cargarJSON('guayoyo_pedidos').forEach(function(o){
     pagosDe(o).forEach(function(p){ ventasExpandidas.push({fecha:o.fecha,metodo:p.metodo,montoBs:p.montoBs,montoUSD:p.montoUSD}); });
   });
-  sumar(ventasExpandidas,'fecha','metodo','montoBs','montoUSD','+ Ventas');
-  sumar(cargarJSON('guayoyo_gastos'),'fecha','metodo','montoBs','montoUSD','− Gastos');
-  sumar(cargarJSON('guayoyo_facturas').filter(function(f){return f.estado==='pagada';}),'fechaPagada','metodoPago','montoBs','montoUSD','− Facturas');
-  sumar(cargarJSON('guayoyo_pagos_nomina'),'fecha','metodoPago','netoBs','netoUSD','− Nómina');
+  sumar(ventasExpandidas,'fecha','metodo','montoBs','montoUSD','+ Ventas',true);
+  sumar(cargarJSON('guayoyo_gastos'),'fecha','metodo','montoBs','montoUSD','− Gastos',false);
+  sumar(cargarJSON('guayoyo_facturas').filter(function(f){return f.estado==='pagada';}),'fechaPagada','metodoPago','montoBs','montoUSD','− Facturas',false);
+  sumar(cargarJSON('guayoyo_pagos_nomina'),'fecha','metodoPago','netoBs','netoUSD','− Nómina',false);
 
   return detalle;
 }
