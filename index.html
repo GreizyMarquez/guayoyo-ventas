@@ -1143,6 +1143,7 @@ function renderEmpleados(){
       '<button onclick="event.stopPropagation();abrirConsumo(\''+e.id+'\')">+ Consumo</button>'+
       '<button onclick="event.stopPropagation();abrirHorasExtra(\''+e.id+'\')">+ H. extra</button>'+
       '<button class="pagar" onclick="event.stopPropagation();pagarNomina(\''+e.id+'\')">💵 Pagar semana</button>'+
+      '<button style="border-color:#c0392b;color:#c0392b;" onclick="event.stopPropagation();eliminarEmpleado(\''+e.id+'\')">🗑 Borrar</button>'+
       '</div>'+
       '<div id="emp-movs-'+e.id+'" style="margin-top:10px;"></div>'+
       '<div id="emp-pagos-'+e.id+'" style="margin-top:10px;"></div>'+
@@ -1173,6 +1174,19 @@ function editarEmpleado(id){
   sincronizarEnNube('empleado',emp);
   renderEmpleados();
   showToast('✅ Empleado actualizado');
+}
+
+function eliminarEmpleado(id){
+  const empleados=cargarJSON('guayoyo_empleados');
+  const emp=empleados.find(function(e){return e.id===id;});
+  if(!emp) return;
+  if(!confirm('¿Borrar a '+emp.nombre+'? Su historial de adelantos/consumos/pagos NO se borra, solo el perfil.')) return;
+  let restantes=empleados.filter(function(e){return e.id!==id;});
+  guardarJSON('guayoyo_empleados',restantes);
+  eliminarEnNube('empleado',id);
+  if(empleadoAbierto===id) empleadoAbierto=null;
+  renderEmpleados();
+  showToast('Empleado borrado');
 }
 
 function toggleEmpleado(id){
