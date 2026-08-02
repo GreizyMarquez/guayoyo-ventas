@@ -456,6 +456,7 @@ let cart={},selectedPay='',currentCat='Todos',modoSplit=false;
 let gastoMoneda='USD',gastoPaySel='';
 let empleadoAbierto=null;
 let intervalSync=null;
+let ultimaLimpiezaTs=0;
 let editandoPedidoId=null, editandoGastoId=null, editandoFacturaId=null;
 let cobroAbiertoId=null;
 
@@ -1861,6 +1862,10 @@ async function sincronizarDesdeNube(){
     const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO);
     if(!resp.ok) throw new Error('respuesta no OK: '+resp.status);
     const data=await resp.json();
+    if(Array.isArray(data.meta)){
+      const marca=data.meta.find(function(m){return m.clave==='ultimaLimpieza';});
+      if(marca) ultimaLimpiezaTs=Number(marca.valor)||0;
+    }
     fusionar('guayoyo_tasas_historial',data.tasas,'fecha','tasa');
     fusionar('guayoyo_pedidos',data.pedidos,'id','pedido');
     fusionar('guayoyo_gastos',data.gastos,'id','gasto');
@@ -1884,7 +1889,15 @@ function fusionar(lsKey,remotos,clave,tipo){
   locales.forEach(function(l){
     const key=String(l[clave]);
     const remoto=mapa[key];
-    if(!remoto || (l._ts||0) > (remoto._ts||0)){ mapa[key]=l; aRepush.push(l); }
+    if(!remoto){
+      // No está en la nube. Si es más viejo que la última limpieza, se
+      // borró a propósito — no lo resucitamos. Si es más nuevo, es un
+      // registro legítimo pendiente de subir.
+      if((l._ts||0) < ultimaLimpiezaTs) return;
+      mapa[key]=l; aRepush.push(l);
+    } else if((l._ts||0) > (remoto._ts||0)){
+      mapa[key]=l; aRepush.push(l);
+    }
   });
   guardarJSON(lsKey,Object.values(mapa));
   aRepush.forEach(function(item,i){ setTimeout(function(){ sincronizarEnNube(tipo,item); }, i*250); });
