@@ -316,6 +316,8 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
   <div class="summary-card">
     <h3>💰 Balance actual</h3>
     <div id="balanceContent"></div>
+    <button class="toggle-link" onclick="toggleDetalleBalance()" id="btnDetalleBalance" style="margin-top:10px;">▸ ver de dónde sale cada monto</button>
+    <div id="detalleBalanceBox" style="display:none;"></div>
   </div>
   <div class="summary-card">
     <h3>🔒 Cierre del día</h3>
@@ -1408,6 +1410,63 @@ function calcularPosPendiente(){
     pagosDe(o).forEach(function(p){ if(p.metodo==='POS') pendienteUSD+=(p.montoUSD||0); });
   });
   return pendienteUSD;
+}
+
+function calcularDetalleBalance(){
+  const hoy=todayKey();
+  const capital=cargarJSON('guayoyo_capital')[0]||{};
+  const detalle={
+    efectivoBs:[{label:'Capital inicial',valor:capital.efectivoBs||0}],
+    efectivoUSD:[{label:'Capital inicial',valor:capital.efectivoUSD||0}],
+    bancoBs:[{label:'Capital inicial',valor:capital.bancoBs||0}]
+  };
+
+  function sumar(lista,campoFecha,campoMetodo,campoBs,campoUSD,prefijo){
+    const t={PM:0,POS:0,EBS:0,EDIV:0};
+    lista.forEach(function(item){
+      const metodo=item[campoMetodo];
+      if(metodo==='POS' && item[campoFecha]>=hoy) return; // aun no liquidado
+      if(t[metodo]!==undefined) t[metodo]+= metodo==='EDIV' ? (item[campoUSD]||0) : (item[campoBs]||0);
+    });
+    if(t.PM) detalle.bancoBs.push({label:prefijo+' Pago Móvil',valor:t.PM*(prefijo.indexOf('−')===0?-1:1)});
+    if(t.POS) detalle.bancoBs.push({label:prefijo+' POS (liquidado)',valor:t.POS*(prefijo.indexOf('−')===0?-1:1)});
+    if(t.EBS) detalle.efectivoBs.push({label:prefijo+' Efectivo Bs',valor:t.EBS*(prefijo.indexOf('−')===0?-1:1)});
+    if(t.EDIV) detalle.efectivoUSD.push({label:prefijo+' Efectivo $',valor:t.EDIV*(prefijo.indexOf('−')===0?-1:1)});
+  }
+
+  const ventasExpandidas=[];
+  cargarJSON('guayoyo_pedidos').forEach(function(o){
+    pagosDe(o).forEach(function(p){ ventasExpandidas.push({fecha:o.fecha,metodo:p.metodo,montoBs:p.montoBs,montoUSD:p.montoUSD}); });
+  });
+  sumar(ventasExpandidas,'fecha','metodo','montoBs','montoUSD','+ Ventas');
+  sumar(cargarJSON('guayoyo_gastos'),'fecha','metodo','montoBs','montoUSD','− Gastos');
+  sumar(cargarJSON('guayoyo_facturas').filter(function(f){return f.estado==='pagada';}),'fechaPagada','metodoPago','montoBs','montoUSD','− Facturas');
+  sumar(cargarJSON('guayoyo_pagos_nomina'),'fecha','metodoPago','netoBs','netoUSD','− Nómina');
+
+  return detalle;
+}
+
+function toggleDetalleBalance(){
+  const box=document.getElementById('detalleBalanceBox');
+  const abrir=box.style.display!=='block';
+  box.style.display=abrir?'block':'none';
+  const btn=document.getElementById('btnDetalleBalance');
+  btn.textContent=(abrir?'▾':'▸')+' ver de dónde sale cada monto';
+  if(abrir) renderDetalleBalance();
+}
+
+function renderDetalleBalance(){
+  const d=calcularDetalleBalance();
+  const box=document.getElementById('detalleBalanceBox');
+  function seccion(titulo,items,formateador){
+    return '<div style="margin:10px 0;padding-top:10px;border-top:1px solid var(--fondo);">'+
+      '<div style="font-size:10px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">'+titulo+'</div>'+
+      items.map(function(i){
+        return '<div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding:3px 0;"><span>'+i.label+'</span><span>'+formateador(i.valor)+'</span></div>';
+      }).join('')+
+      '</div>';
+  }
+  box.innerHTML = seccion('💴 Efectivo Bs',d.efectivoBs,fmtBs)+seccion('💵 Efectivo $',d.efectivoUSD,fmt$)+seccion('🏦 Banco Bs',d.bancoBs,fmtBs);
 }
 
 function renderBalance(){
