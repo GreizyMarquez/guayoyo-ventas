@@ -316,7 +316,7 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 <div class="page" id="page-ahorros">
   <div class="form-card">
     <h3>💰 Registrar ahorro (Bs → USDT)</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Tu hermana te pasa Bs por Pago Móvil, tú le entregas USDT a la tasa que acuerden.</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Tu hermana te pasa Bs por Pago Móvil desde el Banco del negocio, tú le entregas USDT a la tasa que acuerden. <b>Esto ya resta automáticamente del Banco Bs — no lo registres también como gasto.</b></div>
     <div class="form-row">
       <label>Monto recibido en Bs</label>
       <input type="number" id="ahorroMontoBs" inputmode="decimal" placeholder="0" oninput="previewAhorro()">
@@ -1459,9 +1459,15 @@ function calcularBalance(){
   cargarJSON('guayoyo_pagos_nomina').forEach(function(p){
     aplicar(p.fecha,p.metodoPago,p.netoBs,p.netoUSD,-1);
   });
-  cargarJSON('guayoyo_ahorros').filter(function(a){return a.tipo==='venta';}).forEach(function(a){
-    if(a.destino==='efectivoBs') balance.efectivoBs+=(a.montoBs||0);
-    else balance.bancoBs+=(a.montoBs||0);
+  cargarJSON('guayoyo_ahorros').forEach(function(a){
+    if(a.tipo==='venta'){
+      if(a.destino==='efectivoBs') balance.efectivoBs+=(a.montoBs||0);
+      else balance.bancoBs+=(a.montoBs||0);
+    } else {
+      // "Compra": tu hermana te manda Bs por Pago Móvil desde el banco
+      // del negocio, así que ese Bs sale del Banco Bs automáticamente.
+      balance.bancoBs-=(a.montoBs||0);
+    }
   });
   return balance;
 }
@@ -1506,9 +1512,13 @@ function calcularDetalleBalance(){
   sumar(cargarJSON('guayoyo_facturas').filter(function(f){return f.estado==='pagada';}),'fechaPagada','metodoPago','montoBs','montoUSD','− Facturas',false);
   sumar(cargarJSON('guayoyo_pagos_nomina'),'fecha','metodoPago','netoBs','netoUSD','− Nómina',false);
 
-  cargarJSON('guayoyo_ahorros').filter(function(a){return a.tipo==='venta';}).forEach(function(a){
-    const bucket=a.destino==='efectivoBs'?'efectivoBs':'bancoBs';
-    detalle[bucket].push({label:'+ Venta de ahorros (USDT)',valor:a.montoBs||0});
+  cargarJSON('guayoyo_ahorros').forEach(function(a){
+    if(a.tipo==='venta'){
+      const bucket=a.destino==='efectivoBs'?'efectivoBs':'bancoBs';
+      detalle[bucket].push({label:'+ Venta de ahorros (USDT)',valor:a.montoBs||0});
+    } else {
+      detalle.bancoBs.push({label:'− Bs enviado para ahorrar (Pago Móvil)',valor:-(a.montoBs||0)});
+    }
   });
 
   return detalle;
