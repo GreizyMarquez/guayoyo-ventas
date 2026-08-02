@@ -169,6 +169,7 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
   <button class="tab" onclick="showPage('gastos',this)">💸 Gastos</button>
   <button class="tab" onclick="showPage('facturas',this)">🧾 Facturas</button>
   <button class="tab" onclick="showPage('empleados',this)">👥 Equipo</button>
+  <button class="tab" onclick="showPage('ahorros',this)">💰 Ahorros</button>
   <button class="tab" onclick="showPage('resumen',this)">📊 Resumen</button>
 </div>
 
@@ -310,6 +311,59 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
       <button class="btn-cerrar-recibo" onclick="cerrarRecibo()">Cerrar</button>
     </div>
   </div>
+</div>
+
+<div class="page" id="page-ahorros">
+  <div class="form-card">
+    <h3>💰 Registrar ahorro (Bs → USDT)</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Tu hermana te pasa Bs por Pago Móvil, tú le entregas USDT a la tasa que acuerden.</div>
+    <div class="form-row">
+      <label>Monto recibido en Bs</label>
+      <input type="number" id="ahorroMontoBs" inputmode="decimal" placeholder="0" oninput="previewAhorro()">
+    </div>
+    <div class="form-row">
+      <label>Tasa (Bs por 1 USDT)</label>
+      <input type="number" id="ahorroTasa" inputmode="decimal" placeholder="0" oninput="previewAhorro()">
+    </div>
+    <div id="ahorroPreview" style="background:var(--fondo);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);text-align:center;margin-bottom:10px;">Ingresa el monto y la tasa</div>
+    <div class="form-row">
+      <label>Nota (opcional)</label>
+      <input type="text" id="ahorroNota" placeholder="Ej: envío de la semana">
+    </div>
+    <button class="btn-secundario" id="btnGuardarAhorro" onclick="agregarAhorro()">+ Registrar</button>
+  </div>
+  <div class="summary-card">
+    <h3>📊 Total acumulado</h3>
+    <div id="ahorroTotalContent"></div>
+  </div>
+
+  <div class="form-card">
+    <h3>💸 Vender ahorros (USDT → Bs)</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Cuando tu hermana necesita Bs para completar el pago de una factura, vendes parte de tu USDT ahorrado y ese Bs se suma al balance del negocio.</div>
+    <div class="form-row">
+      <label>USDT a vender</label>
+      <input type="number" id="ventaAhorroUSDT" inputmode="decimal" placeholder="0" oninput="previewVentaAhorro()">
+    </div>
+    <div class="form-row">
+      <label>Tasa (Bs por 1 USDT)</label>
+      <input type="number" id="ventaAhorroTasa" inputmode="decimal" placeholder="0" oninput="previewVentaAhorro()">
+    </div>
+    <div id="ventaAhorroPreview" style="background:var(--fondo);border-radius:10px;padding:10px 12px;font-size:13px;color:var(--muted);text-align:center;margin-bottom:10px;">Ingresa el monto y la tasa</div>
+    <div class="form-row">
+      <label>¿A qué bolsillo del negocio entra ese Bs?</label>
+      <div class="pay-methods" style="grid-template-columns:1fr 1fr;">
+        <button class="pay-btn" id="ventaAhorroDestino-bancoBs" onclick="seleccionarDestinoVenta('bancoBs')">🏦 Banco Bs</button>
+        <button class="pay-btn" id="ventaAhorroDestino-efectivoBs" onclick="seleccionarDestinoVenta('efectivoBs')">💴 Efectivo Bs</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label>Nota (opcional)</label>
+      <input type="text" id="ventaAhorroNota" placeholder="Ej: para pagar factura de Suraki">
+    </div>
+    <button class="btn-secundario" id="btnGuardarVentaAhorro" onclick="agregarVentaAhorro()">+ Registrar venta</button>
+  </div>
+
+  <div id="ahorrosList"></div>
 </div>
 
 <div class="page" id="page-resumen">
@@ -1405,6 +1459,10 @@ function calcularBalance(){
   cargarJSON('guayoyo_pagos_nomina').forEach(function(p){
     aplicar(p.fecha,p.metodoPago,p.netoBs,p.netoUSD,-1);
   });
+  cargarJSON('guayoyo_ahorros').filter(function(a){return a.tipo==='venta';}).forEach(function(a){
+    if(a.destino==='efectivoBs') balance.efectivoBs+=(a.montoBs||0);
+    else balance.bancoBs+=(a.montoBs||0);
+  });
   return balance;
 }
 
@@ -1447,6 +1505,11 @@ function calcularDetalleBalance(){
   sumar(cargarJSON('guayoyo_gastos'),'fecha','metodo','montoBs','montoUSD','− Gastos',false);
   sumar(cargarJSON('guayoyo_facturas').filter(function(f){return f.estado==='pagada';}),'fechaPagada','metodoPago','montoBs','montoUSD','− Facturas',false);
   sumar(cargarJSON('guayoyo_pagos_nomina'),'fecha','metodoPago','netoBs','netoUSD','− Nómina',false);
+
+  cargarJSON('guayoyo_ahorros').filter(function(a){return a.tipo==='venta';}).forEach(function(a){
+    const bucket=a.destino==='efectivoBs'?'efectivoBs':'bancoBs';
+    detalle[bucket].push({label:'+ Venta de ahorros (USDT)',valor:a.montoBs||0});
+  });
 
   return detalle;
 }
@@ -1606,6 +1669,182 @@ function renderResumen(){
   el.innerHTML=html;
 }
 
+// ======================================================================
+// AHORROS (Bs recibidos de la hermana → USDT entregado)
+// ======================================================================
+let editandoAhorroId=null;
+
+function previewAhorro(){
+  const bs=parseFloat(document.getElementById('ahorroMontoBs').value)||0;
+  const tasa=parseFloat(document.getElementById('ahorroTasa').value)||0;
+  const el=document.getElementById('ahorroPreview');
+  if(!bs || !tasa){ el.innerHTML='Ingresa el monto y la tasa'; return; }
+  const usdt=bs/tasa;
+  el.innerHTML='Le debes entregar: <b style="color:var(--rojo);">'+usdt.toFixed(2)+' USDT</b>';
+}
+
+function agregarAhorro(){
+  const bs=parseFloat(document.getElementById('ahorroMontoBs').value);
+  const tasa=parseFloat(document.getElementById('ahorroTasa').value);
+  const nota=document.getElementById('ahorroNota').value.trim();
+  if(isNaN(bs)||bs<=0){ alert('Ingresa un monto en Bs válido.'); return; }
+  if(isNaN(tasa)||tasa<=0){ alert('Ingresa una tasa válida.'); return; }
+  const usdt=bs/tasa;
+
+  if(editandoAhorroId){
+    const ahorrosEd=cargarJSON('guayoyo_ahorros');
+    const idxEd=ahorrosEd.findIndex(function(a){return a.id===editandoAhorroId;});
+    if(idxEd>=0){
+      ahorrosEd[idxEd]=Object.assign({},ahorrosEd[idxEd],{tipo:'compra',montoBs:bs,tasa:tasa,usdt:usdt,nota:nota,_ts:Date.now()});
+      guardarJSON('guayoyo_ahorros',ahorrosEd);
+      sincronizarEnNube('ahorro',ahorrosEd[idxEd]);
+      showToast('✅ Ahorro actualizado');
+    }
+    editandoAhorroId=null;
+    document.getElementById('btnGuardarAhorro').textContent='+ Registrar';
+  } else {
+    const ahorro={id:uid(),fecha:todayKey(),tipo:'compra',montoBs:bs,tasa:tasa,usdt:usdt,nota:nota,_ts:Date.now()};
+    const ahorros=cargarJSON('guayoyo_ahorros');
+    ahorros.push(ahorro);
+    guardarJSON('guayoyo_ahorros',ahorros);
+    sincronizarEnNube('ahorro',ahorro);
+    showToast('✅ Ahorro registrado');
+  }
+
+  document.getElementById('ahorroMontoBs').value='';
+  document.getElementById('ahorroTasa').value='';
+  document.getElementById('ahorroNota').value='';
+  previewAhorro();
+  renderAhorros();
+}
+
+let editandoVentaAhorroId=null;
+let destinoVentaSeleccionado='bancoBs';
+
+function editarAhorro(id){
+  const ahorro=cargarJSON('guayoyo_ahorros').find(function(a){return a.id===id;});
+  if(!ahorro) return;
+  if(ahorro.tipo==='venta'){
+    editandoVentaAhorroId=id;
+    document.getElementById('ventaAhorroUSDT').value=ahorro.usdt;
+    document.getElementById('ventaAhorroTasa').value=ahorro.tasa;
+    document.getElementById('ventaAhorroNota').value=ahorro.nota||'';
+    seleccionarDestinoVenta(ahorro.destino||'bancoBs');
+    previewVentaAhorro();
+    document.getElementById('btnGuardarVentaAhorro').textContent='Guardar cambios';
+    document.getElementById('ventaAhorroUSDT').scrollIntoView({behavior:'smooth'});
+    return;
+  }
+  editandoAhorroId=id;
+  document.getElementById('ahorroMontoBs').value=ahorro.montoBs;
+  document.getElementById('ahorroTasa').value=ahorro.tasa;
+  document.getElementById('ahorroNota').value=ahorro.nota||'';
+  previewAhorro();
+  document.getElementById('btnGuardarAhorro').textContent='Guardar cambios';
+  document.getElementById('ahorroMontoBs').scrollIntoView({behavior:'smooth'});
+}
+
+function seleccionarDestinoVenta(destino){
+  destinoVentaSeleccionado=destino;
+  document.getElementById('ventaAhorroDestino-bancoBs').classList.toggle('selected',destino==='bancoBs');
+  document.getElementById('ventaAhorroDestino-efectivoBs').classList.toggle('selected',destino==='efectivoBs');
+}
+
+function previewVentaAhorro(){
+  const usdt=parseFloat(document.getElementById('ventaAhorroUSDT').value)||0;
+  const tasa=parseFloat(document.getElementById('ventaAhorroTasa').value)||0;
+  const el=document.getElementById('ventaAhorroPreview');
+  if(!usdt || !tasa){ el.innerHTML='Ingresa el monto y la tasa'; return; }
+  const bs=usdt*tasa;
+  el.innerHTML='Recibes: <b style="color:var(--rojo);">'+fmtBs(bs)+'</b>';
+}
+
+function agregarVentaAhorro(){
+  const usdt=parseFloat(document.getElementById('ventaAhorroUSDT').value);
+  const tasa=parseFloat(document.getElementById('ventaAhorroTasa').value);
+  const nota=document.getElementById('ventaAhorroNota').value.trim();
+  if(isNaN(usdt)||usdt<=0){ alert('Ingresa un monto de USDT válido.'); return; }
+  if(isNaN(tasa)||tasa<=0){ alert('Ingresa una tasa válida.'); return; }
+  const bs=usdt*tasa;
+
+  if(editandoVentaAhorroId){
+    const ahorrosEd=cargarJSON('guayoyo_ahorros');
+    const idxEd=ahorrosEd.findIndex(function(a){return a.id===editandoVentaAhorroId;});
+    if(idxEd>=0){
+      ahorrosEd[idxEd]=Object.assign({},ahorrosEd[idxEd],{tipo:'venta',usdt:usdt,tasa:tasa,montoBs:bs,destino:destinoVentaSeleccionado,nota:nota,_ts:Date.now()});
+      guardarJSON('guayoyo_ahorros',ahorrosEd);
+      sincronizarEnNube('ahorro',ahorrosEd[idxEd]);
+      showToast('✅ Venta actualizada');
+    }
+    editandoVentaAhorroId=null;
+    document.getElementById('btnGuardarVentaAhorro').textContent='+ Registrar venta';
+  } else {
+    const ahorro={id:uid(),fecha:todayKey(),tipo:'venta',usdt:usdt,tasa:tasa,montoBs:bs,destino:destinoVentaSeleccionado,nota:nota,_ts:Date.now()};
+    const ahorros=cargarJSON('guayoyo_ahorros');
+    ahorros.push(ahorro);
+    guardarJSON('guayoyo_ahorros',ahorros);
+    sincronizarEnNube('ahorro',ahorro);
+    showToast('✅ Venta registrada — se sumó al balance del negocio');
+  }
+
+  document.getElementById('ventaAhorroUSDT').value='';
+  document.getElementById('ventaAhorroTasa').value='';
+  document.getElementById('ventaAhorroNota').value='';
+  previewVentaAhorro();
+  renderAhorros();
+  renderBalance();
+}
+
+function eliminarAhorro(id){
+  if(!confirm('¿Eliminar este registro de ahorro?')) return;
+  let ahorros=cargarJSON('guayoyo_ahorros');
+  ahorros=ahorros.filter(function(a){return a.id!==id;});
+  guardarJSON('guayoyo_ahorros',ahorros);
+  eliminarEnNube('ahorro',id);
+  renderAhorros();
+}
+
+function renderAhorros(){
+  const btnBanco=document.getElementById('ventaAhorroDestino-bancoBs');
+  if(btnBanco && !document.getElementById('ventaAhorroDestino-efectivoBs').classList.contains('selected') && !btnBanco.classList.contains('selected')){
+    seleccionarDestinoVenta('bancoBs');
+  }
+  const ahorros=cargarJSON('guayoyo_ahorros').slice().sort(function(a,b){return (b._ts||0)-(a._ts||0);});
+  let totalCompradoUSDT=0, totalVendidoUSDT=0, totalBsRecibidos=0, totalBsPorVenta=0;
+  ahorros.forEach(function(a){
+    if(a.tipo==='venta'){ totalVendidoUSDT+=(a.usdt||0); totalBsPorVenta+=(a.montoBs||0); }
+    else { totalCompradoUSDT+=(a.usdt||0); totalBsRecibidos+=(a.montoBs||0); }
+  });
+  const netoUSDT=totalCompradoUSDT-totalVendidoUSDT;
+  const totalEl=document.getElementById('ahorroTotalContent');
+  if(totalEl){
+    totalEl.innerHTML='<div class="balance-row"><span>USDT ahorrado (neto)</span><span class="'+(netoUSDT>=0?'balance-pos':'balance-neg')+'">'+netoUSDT.toFixed(2)+' USDT</span></div>'+
+      '<div class="summary-row"><span>Total Bs recibidos (compras)</span><span class="val">'+fmtBs(totalBsRecibidos)+'</span></div>'+
+      (totalVendidoUSDT>0?('<div class="summary-row"><span>Total USDT vendido</span><span class="val">'+totalVendidoUSDT.toFixed(2)+' USDT</span></div>'+
+      '<div class="summary-row"><span>Total Bs generado (ventas)</span><span class="val">'+fmtBs(totalBsPorVenta)+'</span></div>'):'');
+  }
+  const list=document.getElementById('ahorrosList');
+  if(!list) return;
+  if(!ahorros.length){ list.innerHTML='<div class="empty"><div class="empty-icon">💰</div>Sin ahorros registrados</div>'; return; }
+  list.innerHTML=ahorros.map(function(a){
+    if(a.tipo==='venta'){
+      const destinoLabel = a.destino==='efectivoBs' ? '💴 Efectivo Bs' : '🏦 Banco Bs';
+      return '<div class="list-item"><div class="list-item-info">'+
+        '<div class="list-item-title">'+a.usdt.toFixed(2)+' USDT → '+fmtBs(a.montoBs)+'</div>'+
+        '<div class="list-item-sub">'+a.fecha+' · tasa '+a.tasa+' · entra a '+destinoLabel+(a.nota?(' · '+a.nota):'')+'</div>'+
+        '<button class="list-item-edit" onclick="editarAhorro(\''+a.id+'\')">✏️ editar</button>'+
+        '<button class="list-item-del" onclick="eliminarAhorro(\''+a.id+'\')">eliminar</button></div>'+
+        '<div class="list-item-amount" style="color:#c0392b;">−'+a.usdt.toFixed(2)+' USDT</div></div>';
+    }
+    return '<div class="list-item"><div class="list-item-info">'+
+      '<div class="list-item-title">'+fmtBs(a.montoBs)+' → '+a.usdt.toFixed(2)+' USDT</div>'+
+      '<div class="list-item-sub">'+a.fecha+' · tasa '+a.tasa+(a.nota?(' · '+a.nota):'')+'</div>'+
+      '<button class="list-item-edit" onclick="editarAhorro(\''+a.id+'\')">✏️ editar</button>'+
+      '<button class="list-item-del" onclick="eliminarAhorro(\''+a.id+'\')">eliminar</button></div>'+
+      '<div class="list-item-amount">+'+a.usdt.toFixed(2)+' USDT</div></div>';
+  }).join('');
+}
+
 async function sincronizarDesdeNube(){
   if(!APPS_SCRIPT_URL_GUAYOYO) return false;
   try{
@@ -1621,6 +1860,7 @@ async function sincronizarDesdeNube(){
     fusionar('guayoyo_pagos_nomina',data.pagos_nomina,'id','pago_nomina');
     fusionar('guayoyo_capital',data.capital,'id','capital');
     fusionar('guayoyo_cierres',data.cierres,'id','cierre');
+    fusionar('guayoyo_ahorros',data.ahorros,'id','ahorro');
     return true;
   }catch(e){ console.warn('No se pudo sincronizar desde la nube',e); return false; }
 }
@@ -1676,6 +1916,7 @@ function renderTab(id){
   if(id==='gastos')renderGastos();
   if(id==='facturas')renderFacturas();
   if(id==='empleados')renderEmpleados();
+  if(id==='ahorros')renderAhorros();
 }
 
 async function showPage(id,tab){
@@ -1731,6 +1972,7 @@ window.onload=async function(){
   renderFacturas();
   renderEmpleados();
   renderAbiertas();
+  renderAhorros();
 };
 </script>
 </body>
