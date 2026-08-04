@@ -1156,14 +1156,28 @@ function renderFacturas(){
   }).join('') : '<div class="empty"><div class="empty-icon">🧾</div>Sin facturas pagadas</div>';
 }
 
-function semanaActual(){
+let semanaOffsetEmpleados=0; // 0 = semana actual, -1 = semana anterior, -2 = dos semanas atrás... No se permite ir a futuro.
+function semanaConOffset(offset){
   const hoy=new Date();
+  hoy.setDate(hoy.getDate()+offset*7);
   const dow=hoy.getDay();
   const diffLunes = dow===0 ? -6 : 1-dow;
   const lunes=new Date(hoy); lunes.setDate(hoy.getDate()+diffLunes);
   const domingo=new Date(lunes); domingo.setDate(lunes.getDate()+6);
   const f=function(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
   return {desde:f(lunes),hasta:f(domingo)};
+}
+function semanaActual(){ return semanaConOffset(0); }
+function cambiarSemanaEmpleados(delta){
+  semanaOffsetEmpleados += delta;
+  if(semanaOffsetEmpleados>0) semanaOffsetEmpleados=0;
+  renderEmpleados();
+}
+function formatoSemanaCorta(desde,hasta){
+  const opts={day:'numeric',month:'short'};
+  const d=new Date(desde+'T00:00:00');
+  const h=new Date(hasta+'T00:00:00');
+  return d.toLocaleDateString('es-ES',opts)+' – '+h.toLocaleDateString('es-ES',opts);
 }
 
 function calcularNetoSemana(empId,desde,hasta){
@@ -1193,8 +1207,17 @@ function pagosNominaDeEmpleado(empId,desde,hasta){
 function renderEmpleados(){
   const empleados=cargarActivos('guayoyo_empleados');
   const list=document.getElementById('empleadosList');
-  const semana=semanaActual();
-  list.innerHTML=empleados.map(function(e){
+  const semana=semanaConOffset(semanaOffsetEmpleados);
+  const esSemanaActual=semanaOffsetEmpleados===0;
+  const navSemana='<div style="display:flex;align-items:center;justify-content:space-between;background:var(--blanco);border:2px solid var(--azul);border-radius:14px;padding:10px 12px;margin-bottom:14px;box-shadow:var(--shadow);">'+
+    '<button onclick="cambiarSemanaEmpleados(-1)" style="border:2px solid var(--azul);background:var(--blanco);color:var(--azul);border-radius:8px;padding:6px 12px;font-weight:800;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;">◀</button>'+
+    '<div style="text-align:center;">'+
+    '<div style="font-size:12px;font-weight:800;color:var(--texto);">'+formatoSemanaCorta(semana.desde,semana.hasta)+'</div>'+
+    (esSemanaActual?'<div style="font-size:10px;color:var(--muted);">semana actual</div>':'<button class="toggle-link" style="margin:2px 0 0;font-size:10px;" onclick="semanaOffsetEmpleados=0;renderEmpleados();">◦ volver a semana actual</button>')+
+    '</div>'+
+    '<button onclick="cambiarSemanaEmpleados(1)"'+(esSemanaActual?' disabled style="border:2px solid var(--border);background:var(--fondo);color:var(--muted);border-radius:8px;padding:6px 12px;font-weight:800;font-size:14px;"':' style="border:2px solid var(--azul);background:var(--blanco);color:var(--azul);border-radius:8px;padding:6px 12px;font-weight:800;font-size:14px;cursor:pointer;-webkit-tap-highlight-color:transparent;"')+'>▶</button>'+
+    '</div>';
+  list.innerHTML=navSemana+empleados.map(function(e){
     const abierto=empleadoAbierto===e.id;
     const r=calcularNetoSemana(e.id,semana.desde,semana.hasta);
     const yaPagada=pagosNominaDeEmpleado(e.id,semana.desde,semana.hasta).length>0;
@@ -1300,10 +1323,11 @@ function renderPagosEmpleado(empId){
   if(!pagos.length){ el.innerHTML=''; return; }
   el.innerHTML = '<div style="font-size:10px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:1px;margin:8px 0 6px;">Pagos anteriores</div>' +
     pagos.slice(0,10).map(function(p,i){
-      return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);padding:5px 0;border-bottom:1px solid var(--fondo);">'+
+      return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);padding:5px 0;border-bottom:1px solid var(--fondo);flex-wrap:wrap;gap:4px;">'+
         '<span>'+p.semanaDesde+' al '+p.semanaHasta+'</span>'+
         '<span style="display:flex;align-items:center;gap:8px;"><b style="color:var(--texto);">'+fmtBs(p.netoBs)+'</b>'+
         '<button class="toggle-link" style="margin:0;font-size:10px;" onclick="mostrarReciboGuardado(\''+empId+'\','+i+')">ver recibo</button>'+
+        '<button class="list-item-edit" style="margin:0;" onclick="editarPagoNomina(\''+p.id+'\')">✏️</button>'+
         '<button class="list-item-del" style="margin:0;" onclick="eliminarPagoNomina(\''+p.id+'\')">✕</button></span></div>';
     }).join('');
 }
@@ -1318,6 +1342,40 @@ function eliminarPagoNomina(pagoId){
   renderEmpleados();
   renderBalance();
   showToast('Pago eliminado');
+}
+function editarPagoNomina(pagoId){
+  const pagos=cargarJSON('guayoyo_pagos_nomina');
+  const idx=pagos.findIndex(function(p){return p.id===pagoId;});
+  if(idx<0) return;
+  const pago=pagos[idx];
+
+  const desdeStr=prompt('Semana desde (AAAA-MM-DD):',pago.semanaDesde);
+  if(desdeStr===null) return;
+  const hastaStr=prompt('Semana hasta (AAAA-MM-DD):',pago.semanaHasta);
+  if(hastaStr===null) return;
+  const fechaStr=prompt('Fecha en que se pagó (AAAA-MM-DD):',pago.fecha);
+  if(fechaStr===null) return;
+  const netoStr=prompt('Monto neto pagado en Bs:',pago.netoBs);
+  if(netoStr===null) return;
+  const neto=parseFloat(netoStr);
+  if(isNaN(neto)||neto<0){ alert('Monto no válido.'); return; }
+  const metodoStr=prompt('Método de pago (PM, POS, EBS o EDIV):',pago.metodoPago);
+  if(metodoStr===null) return;
+  if(!PAY_LABELS[metodoStr.toUpperCase()]||metodoStr.toUpperCase()==='MIXTO'){ alert('Método no válido.'); return; }
+
+  pago.semanaDesde=desdeStr.trim()||pago.semanaDesde;
+  pago.semanaHasta=hastaStr.trim()||pago.semanaHasta;
+  pago.fecha=fechaStr.trim()||pago.fecha;
+  pago.netoBs=neto;
+  pago.netoUSD=pago.tasaUSDUsada?neto/pago.tasaUSDUsada:pago.netoUSD;
+  pago.metodoPago=metodoStr.toUpperCase();
+  pago._ts=Date.now();
+
+  guardarJSON('guayoyo_pagos_nomina',pagos);
+  sincronizarEnNube('pago_nomina',pago);
+  renderEmpleados();
+  renderBalance();
+  showToast('✅ Pago actualizado');
 }
 function mostrarReciboGuardado(empId,i){
   const pagos=ultimosPagosRenderizados[empId]||[];
@@ -1373,7 +1431,7 @@ function abrirHorasExtra(empId){
 }
 
 function pagarNomina(empId){
-  const semana=semanaActual();
+  const semana=semanaConOffset(semanaOffsetEmpleados);
   const r=calcularNetoSemana(empId,semana.desde,semana.hasta);
   const empleados=cargarJSON('guayoyo_empleados');
   const emp=empleados.find(function(e){return e.id===empId;});
