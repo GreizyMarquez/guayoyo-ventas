@@ -518,6 +518,18 @@ function onTasaChange(){
 function obtenerTasaFecha(fecha){
   return cargarActivos('guayoyo_tasas_historial').find(r=>r.fecha===fecha) || null;
 }
+function tasaEURParaFecha(fecha){
+  const historialOrdenado=cargarActivos('guayoyo_tasas_historial').slice().sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
+  const candidatos=[obtenerTasaFecha(fecha),obtenerTasaFecha(todayKey()),historialOrdenado[0]];
+  const t=candidatos.find(function(x){return x && x.tasaEUR;});
+  return t?t.tasaEUR:0;
+}
+function tasaUSDParaFecha(fecha){
+  const historialOrdenado=cargarActivos('guayoyo_tasas_historial').slice().sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
+  const candidatos=[obtenerTasaFecha(fecha),obtenerTasaFecha(todayKey()),historialOrdenado[0]];
+  const t=candidatos.find(function(x){return x && x.tasaUSD;});
+  return t?t.tasaUSD:0;
+}
 function prellenarTasas(){
   const historial=cargarActivos('guayoyo_tasas_historial').slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));
   if(!historial.length) return;
@@ -1216,11 +1228,8 @@ function calcularNetoSemana(empId,desde,hasta){
   const empleados=cargarActivos('guayoyo_empleados');
   const emp=empleados.find(function(e){return e.id===empId;});
   const salarioUSD = emp?emp.salarioSemanalUSD:0;
-  const historialOrdenado=cargarActivos('guayoyo_tasas_historial').slice().sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
-  const candidatosTasa=[obtenerTasaFecha(hasta),obtenerTasaFecha(todayKey()),historialOrdenado[0]];
-  const tasaInfo = candidatosTasa.find(function(t){return t && t.tasaEUR;}) || candidatosTasa.find(function(t){return t;}) || null;
-  const tasaEUR = tasaInfo ? tasaInfo.tasaEUR : 0;
-  const tasaUSDRef = tasaInfo ? tasaInfo.tasaUSD : 0;
+  const tasaEUR = tasaEURParaFecha(hasta);
+  const tasaUSDRef = tasaUSDParaFecha(hasta);
   const salarioBs = tasaEUR ? salarioUSD*tasaEUR : 0;
   const consumosBs = tasaUSDRef ? consumosUSD*tasaUSDRef : 0;
   const netoBs = salarioBs + horasExtraBs - adelantosBs - consumosBs;
@@ -1422,8 +1431,7 @@ function abrirAdelanto(empId){
   const metodoStr=prompt('¿De qué método sale? Escribe: PM, POS, EBS o EDIV','EBS');
   if(!metodoStr||!PAY_LABELS[metodoStr.toUpperCase()]||metodoStr.toUpperCase()==='MIXTO'){ alert('Método no válido.'); return; }
   const m=metodoStr.toUpperCase();
-  const tasaFecha=obtenerTasaFecha(fecha);
-  const tasa=(tasaFecha&&tasaFecha.tasaUSD)?tasaFecha.tasaUSD:(parseFloat(document.getElementById('tasaUSD').value)||0);
+  const tasa=tasaUSDParaFecha(fecha) || (parseFloat(document.getElementById('tasaUSD').value)||0);
   const mov={id:uid(),empleadoId:empId,fecha:fecha,tipo:'adelanto',montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:m,descripcion:'',_ts:Date.now()};
   const movs=cargarJSON('guayoyo_movimientos_empleado');
   movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
@@ -1459,11 +1467,10 @@ function abrirHorasExtra(empId){
   const horasStr=prompt('¿Cuántas horas extra trabajó?','');
   const horas=parseFloat(horasStr);
   if(isNaN(horas)||horas<=0) return;
-  const montoStr=prompt('¿Cuánto se le va a pagar por esas horas, en $?','');
+  const montoStr=prompt('¿Cuánto se le va a pagar por esas horas, en $ (se convierte a Bs con la tasa EUR de esa fecha)?','');
   const monto=parseFloat(montoStr);
   if(isNaN(monto)||monto<=0) return;
-  const tasaFecha=obtenerTasaFecha(fecha);
-  const tasa=(tasaFecha&&tasaFecha.tasaUSD)?tasaFecha.tasaUSD:(parseFloat(document.getElementById('tasaUSD').value)||0);
+  const tasa=tasaEURParaFecha(fecha) || (parseFloat(document.getElementById('tasaEUR').value)||0);
   const mov={id:uid(),empleadoId:empId,fecha:fecha,tipo:'extra',horas:horas,montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:null,descripcion:'',_ts:Date.now()};
   const movs=cargarJSON('guayoyo_movimientos_empleado');
   movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
