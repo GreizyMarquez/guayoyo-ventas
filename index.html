@@ -185,6 +185,7 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
     </div>
     <button class="toggle-link" onclick="toggleHistorialTasas()" id="btnHistorialTasas" style="margin:0;">▸ ver tasas guardadas</button>
     <div id="historialTasasBox" style="display:none;flex-direction:column;gap:2px;"></div>
+    <button class="toggle-link" onclick="agregarTasaOtroDia()" style="margin:6px 0 0;">✏️ poner/corregir tasa de un día anterior</button>
   </div>
   <div class="order-summary" id="cartSummary" style="display:none;">
     <h3>🛒 Pedido actual</h3>
@@ -530,10 +531,35 @@ function renderHistorialTasas(){
   const abierto=btn.textContent.trim().startsWith('▾');
   btn.textContent=(abierto?'▾':'▸')+' ver tasas guardadas ('+historial.length+')';
   box.innerHTML=historial.length? historial.slice(0,30).map(function(r){
-    return '<div style="font-size:11px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--fondo);">'+
-      r.fecha+(r.fecha===todayKey()?' · HOY':'')+' — USD '+(r.tasaUSD||'—')+' · EUR '+(r.tasaEUR||'—')+
+    return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--fondo);">'+
+      '<span>'+r.fecha+(r.fecha===todayKey()?' · HOY':'')+' — USD '+(r.tasaUSD||'—')+' · EUR '+(r.tasaEUR||'—')+'</span>'+
+      '<button class="list-item-edit" style="margin:0;" onclick="editarTasaFecha(\''+r.fecha+'\')">✏️</button>'+
       '</div>';
   }).join('') : '<div style="font-size:11px;color:var(--muted);">Sin tasas guardadas.</div>';
+}
+function editarTasaFecha(fecha){
+  const historial=cargarJSON('guayoyo_tasas_historial');
+  const idx=historial.findIndex(function(r){return r.fecha===fecha;});
+  const actual=idx>=0?historial[idx]:{tasaUSD:0,tasaEUR:0};
+  const usdStr=prompt('Tasa USD paralelo para '+fecha+':',actual.tasaUSD||'');
+  if(usdStr===null) return;
+  const eurStr=prompt('Tasa EUR (BCV) para '+fecha+':',actual.tasaEUR||'');
+  if(eurStr===null) return;
+  const usd=parseFloat(usdStr)||0;
+  const eur=parseFloat(eurStr)||0;
+  if(!usd && !eur){ alert('Ingresa al menos una tasa.'); return; }
+  const registro={fecha:fecha,tasaUSD:usd,tasaEUR:eur,_ts:Date.now()};
+  if(idx>=0) historial[idx]=registro; else historial.push(registro);
+  guardarJSON('guayoyo_tasas_historial',historial);
+  sincronizarEnNube('tasa',registro);
+  renderHistorialTasas();
+  renderEmpleados();
+  showToast('✅ Tasa guardada');
+}
+function agregarTasaOtroDia(){
+  const fecha=prompt('¿Para qué fecha quieres poner/corregir la tasa? (AAAA-MM-DD):','');
+  if(!fecha) return;
+  editarTasaFecha(fecha.trim());
 }
 function toggleHistorialTasas(){
   const box=document.getElementById('historialTasasBox');
@@ -1191,7 +1217,8 @@ function calcularNetoSemana(empId,desde,hasta){
   const emp=empleados.find(function(e){return e.id===empId;});
   const salarioUSD = emp?emp.salarioSemanalUSD:0;
   const historialOrdenado=cargarActivos('guayoyo_tasas_historial').slice().sort(function(a,b){return b.fecha.localeCompare(a.fecha);});
-  const tasaInfo = obtenerTasaFecha(hasta) || obtenerTasaFecha(todayKey()) || historialOrdenado[0];
+  const candidatosTasa=[obtenerTasaFecha(hasta),obtenerTasaFecha(todayKey()),historialOrdenado[0]];
+  const tasaInfo = candidatosTasa.find(function(t){return t && t.tasaEUR;}) || candidatosTasa.find(function(t){return t;}) || null;
   const tasaEUR = tasaInfo ? tasaInfo.tasaEUR : 0;
   const tasaUSDRef = tasaInfo ? tasaInfo.tasaUSD : 0;
   const salarioBs = tasaEUR ? salarioUSD*tasaEUR : 0;
@@ -1384,15 +1411,20 @@ function mostrarReciboGuardado(empId,i){
 }
 
 function abrirAdelanto(empId){
-  const montoStr=prompt('Monto del adelanto en $ (se convierte a Bs con la tasa USD de hoy):','');
+  const semana=semanaConOffset(semanaOffsetEmpleados);
+  const fechaDefault=semanaOffsetEmpleados===0?todayKey():semana.hasta;
+  const fechaStr=prompt('¿Fecha del adelanto? (AAAA-MM-DD):',fechaDefault);
+  if(!fechaStr) return;
+  const fecha=fechaStr.trim();
+  const montoStr=prompt('Monto del adelanto en $ (se convierte a Bs con la tasa USD de esa fecha):','');
   const monto=parseFloat(montoStr);
   if(isNaN(monto)||monto<=0) return;
   const metodoStr=prompt('¿De qué método sale? Escribe: PM, POS, EBS o EDIV','EBS');
   if(!metodoStr||!PAY_LABELS[metodoStr.toUpperCase()]||metodoStr.toUpperCase()==='MIXTO'){ alert('Método no válido.'); return; }
   const m=metodoStr.toUpperCase();
-  const tasaHoy=obtenerTasaFecha(todayKey());
-  const tasa=parseFloat(document.getElementById('tasaUSD').value) || (tasaHoy?tasaHoy.tasaUSD:0) || 0;
-  const mov={id:uid(),empleadoId:empId,fecha:todayKey(),tipo:'adelanto',montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:m,descripcion:'',_ts:Date.now()};
+  const tasaFecha=obtenerTasaFecha(fecha);
+  const tasa=(tasaFecha&&tasaFecha.tasaUSD)?tasaFecha.tasaUSD:(parseFloat(document.getElementById('tasaUSD').value)||0);
+  const mov={id:uid(),empleadoId:empId,fecha:fecha,tipo:'adelanto',montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:m,descripcion:'',_ts:Date.now()};
   const movs=cargarJSON('guayoyo_movimientos_empleado');
   movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
   sincronizarEnNube('movimiento',mov);
@@ -1401,11 +1433,16 @@ function abrirAdelanto(empId){
 }
 
 function abrirConsumo(empId){
+  const semana=semanaConOffset(semanaOffsetEmpleados);
+  const fechaDefault=semanaOffsetEmpleados===0?todayKey():semana.hasta;
+  const fechaStr=prompt('¿Fecha del consumo? (AAAA-MM-DD):',fechaDefault);
+  if(!fechaStr) return;
+  const fecha=fechaStr.trim();
   const montoStr=prompt('Monto consumido en $ (productos de la carta, a precio normal):','');
   const monto=parseFloat(montoStr);
   if(isNaN(monto)||monto<=0) return;
   const desc=prompt('¿Qué consumió? (opcional)','')||'';
-  const mov={id:uid(),empleadoId:empId,fecha:todayKey(),tipo:'consumo',montoUSD:monto,montoBs:null,metodo:null,descripcion:desc,_ts:Date.now()};
+  const mov={id:uid(),empleadoId:empId,fecha:fecha,tipo:'consumo',montoUSD:monto,montoBs:null,metodo:null,descripcion:desc,_ts:Date.now()};
   const movs=cargarJSON('guayoyo_movimientos_empleado');
   movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
   sincronizarEnNube('movimiento',mov);
@@ -1414,15 +1451,20 @@ function abrirConsumo(empId){
 }
 
 function abrirHorasExtra(empId){
+  const semana=semanaConOffset(semanaOffsetEmpleados);
+  const fechaDefault=semanaOffsetEmpleados===0?todayKey():semana.hasta;
+  const fechaStr=prompt('¿Fecha de la hora extra? (AAAA-MM-DD):',fechaDefault);
+  if(!fechaStr) return;
+  const fecha=fechaStr.trim();
   const horasStr=prompt('¿Cuántas horas extra trabajó?','');
   const horas=parseFloat(horasStr);
   if(isNaN(horas)||horas<=0) return;
   const montoStr=prompt('¿Cuánto se le va a pagar por esas horas, en $?','');
   const monto=parseFloat(montoStr);
   if(isNaN(monto)||monto<=0) return;
-  const tasaHoy=obtenerTasaFecha(todayKey());
-  const tasa=parseFloat(document.getElementById('tasaUSD').value) || (tasaHoy?tasaHoy.tasaUSD:0) || 0;
-  const mov={id:uid(),empleadoId:empId,fecha:todayKey(),tipo:'extra',horas:horas,montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:null,descripcion:'',_ts:Date.now()};
+  const tasaFecha=obtenerTasaFecha(fecha);
+  const tasa=(tasaFecha&&tasaFecha.tasaUSD)?tasaFecha.tasaUSD:(parseFloat(document.getElementById('tasaUSD').value)||0);
+  const mov={id:uid(),empleadoId:empId,fecha:fecha,tipo:'extra',horas:horas,montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:null,descripcion:'',_ts:Date.now()};
   const movs=cargarJSON('guayoyo_movimientos_empleado');
   movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
   sincronizarEnNube('movimiento',mov);
