@@ -1230,6 +1230,9 @@ function calcularNetoSemana(empId,desde,hasta){
   const horasExtra = movs.filter(function(m){return m.tipo==='extra';});
   const horasExtraBs = horasExtra.reduce(function(s,m){return s+(m.montoBs||0);},0);
   const totalHorasExtra = horasExtra.reduce(function(s,m){return s+(m.horas||0);},0);
+  const descuentos = movs.filter(function(m){return m.tipo==='descuento';});
+  const descuentosBs = descuentos.reduce(function(s,m){return s+(m.montoBs||0);},0);
+  const totalDescuentos = descuentos.length;
   const empleados=cargarActivos('guayoyo_empleados');
   const emp=empleados.find(function(e){return e.id===empId;});
   const salarioUSD = emp?emp.salarioSemanalUSD:0;
@@ -1237,8 +1240,8 @@ function calcularNetoSemana(empId,desde,hasta){
   const tasaUSDRef = tasaUSDParaFecha(hasta);
   const salarioBs = tasaEUR ? salarioUSD*tasaEUR : 0;
   const consumosBs = tasaUSDRef ? consumosUSD*tasaUSDRef : 0;
-  const netoBs = salarioBs + horasExtraBs - adelantosBs - consumosBs;
-  return {salarioBs:salarioBs,adelantosBs:adelantosBs,consumosUSD:consumosUSD,consumosBs:consumosBs,horasExtraBs:horasExtraBs,totalHorasExtra:totalHorasExtra,netoBs:netoBs,tasaEUR:tasaEUR,tasaUSDRef:tasaUSDRef,salarioUSD:salarioUSD};
+  const netoBs = salarioBs + horasExtraBs - adelantosBs - consumosBs - descuentosBs;
+  return {salarioBs:salarioBs,adelantosBs:adelantosBs,consumosUSD:consumosUSD,consumosBs:consumosBs,horasExtraBs:horasExtraBs,totalHorasExtra:totalHorasExtra,descuentosBs:descuentosBs,totalDescuentos:totalDescuentos,netoBs:netoBs,tasaEUR:tasaEUR,tasaUSDRef:tasaUSDRef,salarioUSD:salarioUSD};
 }
 
 function pagosNominaDeEmpleado(empId,desde,hasta){
@@ -1270,6 +1273,7 @@ function renderEmpleados(){
       '<div style="font-size:11px;color:var(--muted);margin-bottom:8px;">Semana '+semana.desde+' al '+semana.hasta+(yaPagada?' · <b style="color:#166534;">✅ ya pagada</b>':'')+'</div>'+
       '<div class="emp-summary-row"><span>Salario (tasa EUR BCV)</span><span>'+(r.tasaEUR?fmtBs(r.salarioBs):'falta tasa EUR')+'</span></div>'+
       '<div class="emp-summary-row"><span>+ Horas extra'+(r.totalHorasExtra?(' ('+r.totalHorasExtra+'h)'):'')+'</span><span>'+fmtBs(r.horasExtraBs)+'</span></div>'+
+      '<div class="emp-summary-row"><span>− Descuentos'+(r.totalDescuentos?(' ('+r.totalDescuentos+')'):'')+'</span><span>'+fmtBs(r.descuentosBs)+'</span></div>'+
       '<div class="emp-summary-row"><span>− Adelantos</span><span>'+fmtBs(r.adelantosBs)+'</span></div>'+
       '<div class="emp-summary-row"><span>− Consumos</span><span>'+fmt$(r.consumosUSD)+'</span></div>'+
       '<div class="emp-summary-row total"><span>Neto a pagar</span><span>'+(r.tasaEUR?fmtBs(r.netoBs):'—')+'</span></div>'+
@@ -1277,6 +1281,7 @@ function renderEmpleados(){
       '<button onclick="event.stopPropagation();abrirAdelanto(\''+e.id+'\')">+ Adelanto</button>'+
       '<button onclick="event.stopPropagation();abrirConsumo(\''+e.id+'\')">+ Consumo</button>'+
       '<button onclick="event.stopPropagation();abrirHorasExtra(\''+e.id+'\')">+ H. extra</button>'+
+      '<button onclick="event.stopPropagation();abrirDescuento(\''+e.id+'\')" style="border-color:#c0392b;color:#c0392b;">➖ Descuento</button>'+
       '<button class="pagar" onclick="event.stopPropagation();pagarNomina(\''+e.id+'\')">💵 Pagar semana</button>'+
       '<button style="border-color:#c0392b;color:#c0392b;" onclick="event.stopPropagation();eliminarEmpleado(\''+e.id+'\')">🗑 Borrar</button>'+
       '</div>'+
@@ -1335,7 +1340,7 @@ function renderMovimientosEmpleado(empId,semana){
   if(!el) return;
   if(!movs.length){ el.innerHTML='<div style="font-size:11px;color:var(--muted);">Sin movimientos esta semana.</div>'; return; }
   el.innerHTML = movs.map(function(m){
-    const etiqueta = m.tipo==='adelanto' ? 'Adelanto' : m.tipo==='extra' ? ('Hora extra ('+(m.horas||0)+'h)') : 'Consumo';
+    const etiqueta = m.tipo==='adelanto' ? 'Adelanto' : m.tipo==='extra' ? ('Hora extra ('+(m.horas||0)+'h)') : m.tipo==='descuento' ? (m.subtipo==='dia' ? 'Descuento (día completo)' : ('Descuento ('+(m.horas||0)+'h)')) : 'Consumo';
     const valor = m.tipo==='consumo' ? fmt$(m.montoUSD) : fmtBs(m.montoBs);
     return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--fondo);">'+
       '<span>'+m.fecha+' · '+etiqueta+(m.descripcion?(': '+m.descripcion):'')+'</span>'+
@@ -1484,6 +1489,48 @@ function abrirHorasExtra(empId){
   showToast('✅ Horas extra registradas');
 }
 
+function abrirDescuento(empId){
+  const tipoStr=prompt('¿Qué se descuenta? Escribe "horas" (unas horas no laboradas) o "dia" (día completo no laborado):','horas');
+  if(!tipoStr) return;
+  const tipo=tipoStr.trim().toLowerCase();
+  if(tipo!=='horas' && tipo!=='dia'){ alert('Escribe "horas" o "dia".'); return; }
+
+  const semana=semanaConOffset(semanaOffsetEmpleados);
+  const fechaDefault=semanaOffsetEmpleados===0?todayKey():semana.hasta;
+  const fechaStr=prompt('¿Fecha del día en que no laboró? (AAAA-MM-DD):',fechaDefault);
+  if(!fechaStr) return;
+  const fecha=fechaStr.trim();
+
+  const empleados=cargarJSON('guayoyo_empleados');
+  const emp=empleados.find(function(e){return e.id===empId;});
+  if(!emp) return;
+  const DIAS_LABORABLES=6; // 6 días a la semana (1 día libre)
+  const HORAS_JORNADA=8;   // jornada estándar de referencia
+
+  let horas=null, montoSugerido=0;
+  if(tipo==='horas'){
+    const horasStr=prompt('¿Cuántas horas no laboró?','');
+    horas=parseFloat(horasStr);
+    if(isNaN(horas)||horas<=0) return;
+    montoSugerido = (emp.salarioSemanalUSD/DIAS_LABORABLES/HORAS_JORNADA)*horas;
+  } else {
+    montoSugerido = emp.salarioSemanalUSD/DIAS_LABORABLES;
+  }
+
+  const montoStr=prompt('Monto a descontar en $ (sugerido según su salario semanal — puedes ajustarlo):',montoSugerido.toFixed(2));
+  const monto=parseFloat(montoStr);
+  if(isNaN(monto)||monto<=0) return;
+  const motivo=prompt('Motivo del descuento (opcional):','')||'';
+
+  const tasa=tasaEURParaFecha(fecha) || (parseFloat(document.getElementById('tasaEUR').value)||0);
+  const mov={id:uid(),empleadoId:empId,fecha:fecha,tipo:'descuento',subtipo:tipo,horas:horas,montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:null,descripcion:motivo,_ts:Date.now()};
+  const movs=cargarJSON('guayoyo_movimientos_empleado');
+  movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
+  sincronizarEnNube('movimiento',mov);
+  renderEmpleados();
+  showToast('✅ Descuento registrado');
+}
+
 function pagarNomina(empId){
   const semana=semanaConOffset(semanaOffsetEmpleados);
   const r=calcularNetoSemana(empId,semana.desde,semana.hasta);
@@ -1503,6 +1550,7 @@ function pagarNomina(empId){
     fecha:todayKey(),semanaDesde:semana.desde,semanaHasta:semana.hasta,
     salarioBaseUSD:r.salarioUSD,salarioBaseBs:r.salarioBs,
     horasExtraBs:r.horasExtraBs,totalHorasExtra:r.totalHorasExtra,
+    descuentosBs:r.descuentosBs,totalDescuentos:r.totalDescuentos,
     adelantosBs:r.adelantosBs,consumosUSD:r.consumosUSD,consumosBs:r.consumosBs,
     netoBs:r.netoBs,netoUSD:r.tasaUSDRef?r.netoBs/r.tasaUSDRef:0,
     metodoPago:metodo,tasaEURUsada:r.tasaEUR,tasaUSDUsada:r.tasaUSDRef,
@@ -1531,6 +1579,7 @@ function mostrarRecibo(pago){
     '<hr style="margin:10px 0;border:none;border-top:1px solid var(--border);">'+
     '<div style="display:flex;justify-content:space-between;"><span>Salario base (tasa EUR '+pago.tasaEURUsada+')</span><span>'+fmtBs(pago.salarioBaseBs)+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;"><span>+ Horas extra'+(pago.totalHorasExtra?(' ('+pago.totalHorasExtra+'h)'):'')+'</span><span>'+fmtBs(pago.horasExtraBs)+'</span></div>'+
+    '<div style="display:flex;justify-content:space-between;"><span>− Descuentos'+(pago.totalDescuentos?(' ('+pago.totalDescuentos+')'):'')+'</span><span>'+fmtBs(pago.descuentosBs||0)+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;"><span>− Adelantos</span><span>'+fmtBs(pago.adelantosBs)+'</span></div>'+
     '<div style="display:flex;justify-content:space-between;"><span>− Consumos</span><span>'+fmt$(pago.consumosUSD)+' ('+fmtBs(pago.consumosBs)+')</span></div>'+
     '<hr style="margin:10px 0;border:none;border-top:2px solid var(--azul);">'+
