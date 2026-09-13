@@ -1409,8 +1409,9 @@ function renderMovimientosEmpleado(empId,semana){
   el.innerHTML = movs.map(function(m){
     const etiqueta = m.tipo==='adelanto' ? 'Adelanto' : m.tipo==='extra' ? ('Hora extra ('+(m.horas||0)+'h)') : m.tipo==='descuento' ? (m.subtipo==='dia' ? 'Descuento (día completo)' : ('Descuento ('+(m.horas||0)+'h)')) : 'Consumo';
     const valor = m.tipo==='consumo' ? fmt$(m.montoUSD) : fmtBs(m.montoBs);
+    const beb = Array.isArray(m.bebidas)&&m.bebidas.length ? ' 🥤'+m.bebidas.map(function(b){return b.qty+'× '+b.producto;}).join(', ') : '';
     return '<div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:var(--muted);padding:4px 0;border-bottom:1px solid var(--fondo);">'+
-      '<span>'+m.fecha+' · '+etiqueta+(m.descripcion?(': '+m.descripcion):'')+'</span>'+
+      '<span>'+m.fecha+' · '+etiqueta+(m.descripcion?(': '+m.descripcion):'')+beb+'</span>'+
       '<span style="display:flex;align-items:center;gap:8px;"><b style="font-weight:700;color:var(--texto);">'+valor+'</b>'+
       '<button class="list-item-del" style="margin:0;" onclick="eliminarMovimiento(\''+m.id+'\',\''+empId+'\')">✕</button></span></div>';
   }).join('');
@@ -1538,7 +1539,13 @@ function abrirConsumo(empId){
   const monto=parseFloat(montoStr);
   if(isNaN(monto)||monto<=0) return;
   const desc=prompt('¿Qué consumió? (opcional)','')||'';
-  const mov={id:uid(),empleadoId:empId,fecha:fecha,tipo:'consumo',montoUSD:monto,montoBs:null,metodo:null,descripcion:desc,_ts:Date.now()};
+  // Bebidas embotelladas del consumo, para descontarlas del inventario.
+  const lista=INV_ITEMS.map(function(n,i){return (i+1)+' '+n;}).join('\n');
+  const bebStr=prompt('¿Incluyó bebidas embotelladas? Escribe el número de cada una separado por coma (ej: 1,1,4 = dos de 250 ml y un 2 L). Deja vacío si no.\n\n'+lista,'')||'';
+  const conteo={};
+  bebStr.split(/[,\s]+/).forEach(function(t){ const i=parseInt(t,10); if(i>=1 && i<=INV_ITEMS.length){ const n=INV_ITEMS[i-1]; conteo[n]=(conteo[n]||0)+1; } });
+  const bebidas=Object.keys(conteo).map(function(n){return {producto:n,qty:conteo[n]};});
+  const mov={id:uid(),empleadoId:empId,fecha:fecha,tipo:'consumo',montoUSD:monto,montoBs:null,metodo:null,descripcion:desc,bebidas:bebidas.length?bebidas:null,_ts:Date.now()};
   const movs=cargarJSON('guayoyo_movimientos_empleado');
   movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
   sincronizarEnNube('movimiento',mov);
@@ -2366,6 +2373,19 @@ function calcularInventario(){
         const u=c[inv]*(Number(it.qty)||0);
         stock[inv]-=u; vendido[inv]+=u;
       });
+    });
+  });
+  // Consumos de empleados con bebidas embotelladas también salen del stock.
+  cargarActivos('guayoyo_movimientos_empleado').forEach(function(m){
+    if(m.tipo!=='consumo' || !Array.isArray(m.bebidas)) return;
+    m.bebidas.forEach(function(b){
+      const inv=b.producto; const ini=inicio[inv];
+      if(ini===null || ini===undefined) return;
+      const fIni=fechaDeTs(ini);
+      const cuenta = m.fecha>fIni || (m.fecha===fIni && (Number(m._ts)||0)>=ini);
+      if(!cuenta) return;
+      const u=Number(b.qty)||0;
+      stock[inv]-=u; vendido[inv]+=u;
     });
   });
   return {stock:stock,vendido:vendido,entradas:entradas,inicio:inicio};
