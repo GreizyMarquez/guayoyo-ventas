@@ -1502,14 +1502,25 @@ function abrirAdelanto(empId){
   const fechaStr=prompt('¿Fecha del adelanto? (AAAA-MM-DD):',fechaDefault);
   if(!fechaStr) return;
   const fecha=fechaStr.trim();
-  const montoStr=prompt('Monto del adelanto en $ (se convierte a Bs con la tasa USD de esa fecha):','');
-  const monto=parseFloat(montoStr);
-  if(isNaN(monto)||monto<=0) return;
   const metodoStr=prompt('¿De qué método sale? Escribe: PM, POS, EBS o EDIV','EBS');
   if(!metodoStr||!PAY_LABELS[metodoStr.toUpperCase()]||metodoStr.toUpperCase()==='MIXTO'){ alert('Método no válido.'); return; }
   const m=metodoStr.toUpperCase();
   const tasa=tasaUSDParaFecha(fecha) || (parseFloat(document.getElementById('tasaUSD').value)||0);
-  const mov={id:uid(),empleadoId:empId,fecha:fecha,tipo:'adelanto',montoUSD:monto,montoBs:tasa>0?monto*tasa:0,metodo:m,descripcion:'',_ts:Date.now()};
+  // Si sale en divisas se pide en $; si sale en Bs (PM, POS, EBS) se pide en Bs
+  // y se calcula el equivalente en $ con la tasa de esa fecha.
+  let montoUSD, montoBs;
+  if(m==='EDIV'){
+    const montoStr=prompt('Monto del adelanto en $:','');
+    montoUSD=parseFloat(montoStr);
+    if(isNaN(montoUSD)||montoUSD<=0) return;
+    montoBs=tasa>0?montoUSD*tasa:0;
+  } else {
+    const montoStr=prompt('Monto del adelanto en Bs (tasa de esa fecha: '+(tasa||'sin tasa')+'):','');
+    montoBs=parseFloat(montoStr);
+    if(isNaN(montoBs)||montoBs<=0) return;
+    montoUSD=tasa>0?montoBs/tasa:0;
+  }
+  const mov={id:uid(),empleadoId:empId,fecha:fecha,tipo:'adelanto',montoUSD:montoUSD,montoBs:montoBs,metodo:m,descripcion:'',_ts:Date.now()};
   const movs=cargarJSON('guayoyo_movimientos_empleado');
   movs.push(mov); guardarJSON('guayoyo_movimientos_empleado',movs);
   sincronizarEnNube('movimiento',mov);
