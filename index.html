@@ -378,7 +378,7 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
 <div class="page" id="page-inventario">
   <div class="summary-card">
     <h3>📦 Stock actual de bebidas</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">El stock se calcula solo: entradas registradas − unidades vendidas en los pedidos. Los "refrescos de vaso" de los combos descuentan 1/10 de un Refresco 2 L.</div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Para empezar, cuenta lo que tienes y regístralo como <b>Entrada</b>. Desde ese momento el stock se calcula solo: entradas − unidades vendidas en los pedidos (las ventas anteriores no se descuentan). Los "refrescos de vaso" de los combos descuentan 1/10 de un Refresco 2 L.</div>
     <div id="inventarioStock"></div>
   </div>
   <div class="form-card">
@@ -2199,7 +2199,10 @@ function renderAhorros(){
 async function sincronizarDesdeNube(){
   if(!APPS_SCRIPT_URL_GUAYOYO) return false;
   try{
-    const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO);
+    const ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+    const timer=ctrl?setTimeout(function(){ctrl.abort();},25000):null;
+    const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO,ctrl?{signal:ctrl.signal}:undefined);
+    if(timer) clearTimeout(timer);
     if(!resp.ok) throw new Error('respuesta no OK: '+resp.status);
     const data=await resp.json();
     if(Array.isArray(data.meta)){
@@ -2317,24 +2320,37 @@ INV_ITEMS.forEach(function(n){ INV_CONSUMO[n]={}; INV_CONSUMO[n][n]=1; });
 const INV_MINIMO=5;
 let editandoInvId=null;
 
+function fechaDeTs(ts){
+  const d=new Date(ts);
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
 function calcularInventario(){
-  const stock={}, vendido={}, entradas={};
-  INV_ITEMS.forEach(function(n){ stock[n]=0; vendido[n]=0; entradas[n]=0; });
+  const stock={}, vendido={}, entradas={}, inicio={};
+  INV_ITEMS.forEach(function(n){ stock[n]=0; vendido[n]=0; entradas[n]=0; inicio[n]=null; });
+  // El inventario de cada producto arranca con su primera entrada; las
+  // ventas anteriores a ese momento no se descuentan.
   cargarActivos('guayoyo_inventario').forEach(function(m){
     if(stock[m.producto]===undefined) return;
     stock[m.producto]+=(Number(m.cantidad)||0);
     entradas[m.producto]+=(Number(m.cantidad)||0);
+    const ts=Number(m._ts)||0;
+    if(inicio[m.producto]===null || ts<inicio[m.producto]) inicio[m.producto]=ts;
   });
   cargarActivos('guayoyo_pedidos').forEach(function(o){
     (o.items||[]).forEach(function(it){
       const c=INV_CONSUMO[it.name]; if(!c) return;
       Object.keys(c).forEach(function(inv){
+        const ini=inicio[inv];
+        if(ini===null) return;
+        const fIni=fechaDeTs(ini);
+        const cuenta = o.fecha>fIni || (o.fecha===fIni && (Number(o._ts)||0)>=ini);
+        if(!cuenta) return;
         const u=c[inv]*(Number(it.qty)||0);
         stock[inv]-=u; vendido[inv]+=u;
       });
     });
   });
-  return {stock:stock,vendido:vendido,entradas:entradas};
+  return {stock:stock,vendido:vendido,entradas:entradas,inicio:inicio};
 }
 function fmtInv(n){ return (Math.round(n*10)/10).toString(); }
 
@@ -2348,11 +2364,18 @@ function renderInventario(){
   if(el){
     el.innerHTML=INV_ITEMS.map(function(n){
       const st=r.stock[n];
+      if(r.inicio[n]===null){
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'+
+          '<div><div style="font-size:13px;font-weight:700;">'+n+'</div>'+
+          '<div style="font-size:11px;color:var(--muted);">sin registrar — anota una entrada con lo que tienes hoy</div></div>'+
+          '<div style="font-size:16px;font-weight:800;color:var(--muted);">—</div></div>';
+      }
       const color=st<=0?'#c0392b':(st<=INV_MINIMO?'#d68910':'var(--texto)');
       const alerta=st<=0?' · ⛔ agotado':(st<=INV_MINIMO?' · ⚠️ poco stock':'');
+      const desde=fechaDeTs(r.inicio[n]).slice(5).split('-').reverse().join('/');
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'+
         '<div><div style="font-size:13px;font-weight:700;">'+n+'</div>'+
-        '<div style="font-size:11px;color:var(--muted);">entradas '+fmtInv(r.entradas[n])+' · vendidas '+fmtInv(r.vendido[n])+alerta+'</div></div>'+
+        '<div style="font-size:11px;color:var(--muted);">desde '+desde+' · entradas '+fmtInv(r.entradas[n])+' · vendidas '+fmtInv(r.vendido[n])+alerta+'</div></div>'+
         '<div style="font-size:16px;font-weight:800;color:'+color+';">'+fmtInv(st)+'</div></div>';
     }).join('');
   }
@@ -2439,10 +2462,6 @@ window.onload=async function(){
 
   seedEmpleados();
 
-  mostrarEstadoSync(APPS_SCRIPT_URL_GUAYOYO?'checking':'local');
-  const ok=await sincronizarDesdeNube();
-  if(APPS_SCRIPT_URL_GUAYOYO) mostrarEstadoSync(ok?'ok':'error');
-
   const cs=document.getElementById('catScroll');
   CATS.forEach(function(cat){
     const b=document.createElement('button');
@@ -2461,6 +2480,18 @@ window.onload=async function(){
   renderEmpleados();
   renderAbiertas();
   renderAhorros();
+
+  // La sincronización va después de pintar la pantalla, para que el app
+  // se pueda usar de inmediato aunque la conexión esté lenta.
+  mostrarEstadoSync(APPS_SCRIPT_URL_GUAYOYO?'checking':'local');
+  const ok=await sincronizarDesdeNube();
+  if(APPS_SCRIPT_URL_GUAYOYO) mostrarEstadoSync(ok?'ok':'error');
+  if(ok){
+    prellenarTasas(); renderHistorialTasas();
+    renderFacturas(); renderEmpleados(); renderAbiertas(); renderAhorros();
+    const activa=document.querySelector('.page.active');
+    if(activa) renderTab(activa.id.replace('page-',''));
+  }
 };
 </script>
 </body>
