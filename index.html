@@ -170,6 +170,7 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
   <button class="tab" onclick="showPage('facturas',this)">🧾 Facturas</button>
   <button class="tab" onclick="showPage('empleados',this)">👥 Equipo</button>
   <button class="tab" onclick="showPage('ahorros',this)">💰 Ahorros</button>
+  <button class="tab" onclick="showPage('inventario',this)">📦 Inventario</button>
   <button class="tab" onclick="showPage('resumen',this)">📊 Resumen</button>
 </div>
 
@@ -367,12 +368,59 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
   <div id="ahorrosList"></div>
 </div>
 
+<div class="page" id="page-inventario">
+  <div class="summary-card">
+    <h3>📦 Stock actual de bebidas</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">El stock se calcula solo: entradas registradas − unidades vendidas en los pedidos. Los "refrescos de vaso" de los combos descuentan 1/10 de un Refresco 2 L.</div>
+    <div id="inventarioStock"></div>
+  </div>
+  <div class="form-card">
+    <h3>➕ Registrar entrada / ajuste</h3>
+    <div class="form-row">
+      <label>Producto</label>
+      <select id="invProducto"></select>
+    </div>
+    <div class="form-row">
+      <label>Tipo</label>
+      <select id="invTipo">
+        <option value="entrada">Entrada (compra / inventario inicial)</option>
+        <option value="ajuste">Ajuste (merma, conteo físico: usa negativo para restar)</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>Cantidad (unidades)</label>
+      <input type="number" id="invCantidad" inputmode="decimal" placeholder="0">
+    </div>
+    <div class="form-row">
+      <label>Nota (opcional)</label>
+      <input type="text" id="invNota" placeholder="Ej: compra en Makro">
+    </div>
+    <button class="btn-secundario" id="btnGuardarInv" onclick="agregarInventario()">+ Registrar</button>
+  </div>
+  <div style="margin-top:6px;">
+    <button class="toggle-link" onclick="toggleInvHistorial()" id="btnInvHistorial">▸ ver historial de entradas y ajustes</button>
+    <div id="inventarioHistorial" style="display:none;"></div>
+  </div>
+</div>
+
 <div class="page" id="page-resumen">
   <div class="summary-card">
     <h3>💰 Balance actual</h3>
     <div id="balanceContent"></div>
     <button class="toggle-link" onclick="toggleDetalleBalance()" id="btnDetalleBalance" style="margin-top:10px;">▸ ver de dónde sale cada monto</button>
     <div id="detalleBalanceBox" style="display:none;"></div>
+  </div>
+  <div class="form-card">
+    <h3>🧮 Cuadre de caja (dinero real)</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Cuenta lo que hay de verdad y escríbelo aquí. Te muestro la diferencia con lo que el app calcula. Al guardar, el balance queda igual al dinero real y la diferencia queda registrada para que no se pierda.</div>
+    <div class="form-row"><label>💴 Efectivo Bs contado</label><input type="number" id="arqueoEfectivoBs" inputmode="decimal" placeholder="0" oninput="previewArqueo()"></div>
+    <div class="form-row"><label>💵 Efectivo $ contado</label><input type="number" id="arqueoEfectivoUSD" inputmode="decimal" placeholder="0" oninput="previewArqueo()"></div>
+    <div class="form-row"><label>🏦 Banco Bs (saldo real de la cuenta)</label><input type="number" id="arqueoBancoBs" inputmode="decimal" placeholder="0" oninput="previewArqueo()"></div>
+    <div id="arqueoPreview" style="background:var(--fondo);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);margin-bottom:10px;">Escribe los montos que contaste</div>
+    <div class="form-row"><label>Nota (opcional)</label><input type="text" id="arqueoNota" placeholder="Ej: faltó vuelto de la mañana"></div>
+    <button class="btn-secundario" onclick="guardarArqueo()">Guardar cuadre</button>
+    <button class="toggle-link" onclick="toggleHistorialArqueos()" id="btnHistorialArqueos" style="margin:10px 0 0;">▸ ver cuadres anteriores</button>
+    <div id="arqueosHistorialBox" style="display:none;margin-top:8px;"></div>
   </div>
   <div class="summary-card">
     <h3>🔒 Cierre del día</h3>
@@ -426,6 +474,8 @@ const MENU=[
   {cat:'Pastel',name:'Pastel - Carne mechada',price:0.38},
   {cat:'Pastel',name:'Pastel - Carne molida',price:0.38},
   {cat:'Pastel',name:'Pastel - Primavera',price:0.38},
+  {cat:'Perro caliente',name:'Perro caliente - Clásico',price:2.00},
+  {cat:'Perro caliente',name:'Perro caliente - PepiPerro',price:3.50},
   {cat:'Bebida',name:'Refresco 250 ml',price:1.50},
   {cat:'Bebida',name:'Refresco 2 L',price:3.00},
   {cat:'Bebida',name:'Malta 250 ml',price:1.00},
@@ -444,13 +494,16 @@ const MENU=[
   {cat:'Bebida',name:'Lipton',price:2.50},
   {cat:'Bebida',name:'Refresco 1.5 L',price:2.50},
   {cat:'Bebida',name:'Refresco 1 L',price:2.00},
+  {cat:'Bebida',name:'Jugo del Valle 500 ml',price:1.50},
+  {cat:'Bebida',name:'Jugo del Valle 1.5 L',price:3.00},
   {cat:'Café',name:'Espresso',price:1.00},
   {cat:'Café',name:'Americano',price:1.50},
   {cat:'Café',name:'Cappuccino',price:2.00},
   {cat:'Café',name:'Mocaccino',price:2.50},
   {cat:'Café',name:'Latte vainilla',price:3.00},
   {cat:'Café',name:'Frapuccino',price:4.00},
-  {cat:'Combo',name:'Combo Futbolero (5 mini + malta/jugo)',price:3.50},
+  {cat:'Combo',name:'Combo 2 Perros Clásicos + 2 refrescos de vaso',price:5.00},
+  {cat:'Combo',name:'Combo 2 PepiPerros + 2 refrescos de vaso',price:8.00},
 ];
 const CATS=['Todos',...new Set(MENU.map(p=>p.cat))];
 const PAY_LABELS={PM:'Pago Móvil',POS:'POS/Tarjeta',EBS:'Efectivo Bs',EDIV:'Efectivo Divisas',MIXTO:'Pago mixto'};
@@ -1649,6 +1702,14 @@ function calcularBalance(){
       balance.bancoBs-=(a.montoBs||0);
     }
   });
+
+  // Cuadres de caja: la diferencia entre lo contado y lo calculado se
+  // aplica como ajuste para que el balance refleje el dinero real.
+  cargarActivos('guayoyo_arqueos').forEach(function(q){
+    balance.efectivoBs+=(q.difEfectivoBs||0);
+    balance.efectivoUSD+=(q.difEfectivoUSD||0);
+    balance.bancoBs+=(q.difBancoBs||0);
+  });
   return balance;
 }
 
@@ -1701,6 +1762,13 @@ function calcularDetalleBalance(){
     }
   });
 
+  cargarActivos('guayoyo_arqueos').forEach(function(q){
+    const lbl='Cuadre de caja '+q.fecha+(q.nota?(' ('+q.nota+')'):'');
+    if(Math.abs(q.difEfectivoBs||0)>0.004) detalle.efectivoBs.push({label:((q.difEfectivoBs>0)?'+ ':'− ')+lbl,valor:q.difEfectivoBs});
+    if(Math.abs(q.difEfectivoUSD||0)>0.004) detalle.efectivoUSD.push({label:((q.difEfectivoUSD>0)?'+ ':'− ')+lbl,valor:q.difEfectivoUSD});
+    if(Math.abs(q.difBancoBs||0)>0.004) detalle.bancoBs.push({label:((q.difBancoBs>0)?'+ ':'− ')+lbl,valor:q.difBancoBs});
+  });
+
   return detalle;
 }
 
@@ -1744,6 +1812,85 @@ function renderBalance(){
     if(eu && document.activeElement!==eu) eu.value=capital.efectivoUSD||'';
     if(bb && document.activeElement!==bb) bb.value=capital.bancoBs||'';
   }
+}
+
+// ======================================================================
+// CUADRE DE CAJA (arqueo): dinero real vs. calculado
+// ======================================================================
+function leerArqueoForm(){
+  function val(id){ const v=document.getElementById(id).value; return v===''?null:(parseFloat(v)||0); }
+  return {efectivoBs:val('arqueoEfectivoBs'),efectivoUSD:val('arqueoEfectivoUSD'),bancoBs:val('arqueoBancoBs')};
+}
+function difTexto(dif,fmt){
+  if(Math.abs(dif)<0.005) return '<span style="color:#166534;font-weight:700;">✓ cuadra</span>';
+  return '<span style="color:'+(dif>0?'#166534':'#c0392b')+';font-weight:700;">'+(dif>0?'sobra ':'falta ')+fmt(Math.abs(dif))+'</span>';
+}
+function previewArqueo(){
+  const r=leerArqueoForm(); const b=calcularBalance();
+  const el=document.getElementById('arqueoPreview');
+  const filas=[];
+  if(r.efectivoBs!==null) filas.push('💴 Efectivo Bs: app '+fmtBs(b.efectivoBs)+' · real '+fmtBs(r.efectivoBs)+' → '+difTexto(r.efectivoBs-b.efectivoBs,fmtBs));
+  if(r.efectivoUSD!==null) filas.push('💵 Efectivo $: app '+fmt$(b.efectivoUSD)+' · real '+fmt$(r.efectivoUSD)+' → '+difTexto(r.efectivoUSD-b.efectivoUSD,fmt$));
+  if(r.bancoBs!==null) filas.push('🏦 Banco Bs: app '+fmtBs(b.bancoBs)+' · real '+fmtBs(r.bancoBs)+' → '+difTexto(r.bancoBs-b.bancoBs,fmtBs));
+  el.innerHTML=filas.length?filas.map(function(f){return '<div style="padding:3px 0;">'+f+'</div>';}).join(''):'Escribe los montos que contaste';
+}
+function guardarArqueo(){
+  const r=leerArqueoForm();
+  if(r.efectivoBs===null && r.efectivoUSD===null && r.bancoBs===null){ alert('Escribe al menos un monto contado.'); return; }
+  const b=calcularBalance();
+  const arqueo={
+    id:uid(),fecha:todayKey(),hora:horaAhora12h(),
+    realEfectivoBs:r.efectivoBs,realEfectivoUSD:r.efectivoUSD,realBancoBs:r.bancoBs,
+    calcEfectivoBs:b.efectivoBs,calcEfectivoUSD:b.efectivoUSD,calcBancoBs:b.bancoBs,
+    difEfectivoBs:r.efectivoBs===null?0:(r.efectivoBs-b.efectivoBs),
+    difEfectivoUSD:r.efectivoUSD===null?0:(r.efectivoUSD-b.efectivoUSD),
+    difBancoBs:r.bancoBs===null?0:(r.bancoBs-b.bancoBs),
+    nota:document.getElementById('arqueoNota').value.trim(),_ts:Date.now()
+  };
+  const sinDif=Math.abs(arqueo.difEfectivoBs)<0.005 && Math.abs(arqueo.difEfectivoUSD)<0.005 && Math.abs(arqueo.difBancoBs)<0.005;
+  if(!sinDif && !confirm('Se ajustará el balance para que coincida con lo contado. ¿Guardar el cuadre?')) return;
+  const arqueos=cargarJSON('guayoyo_arqueos');
+  arqueos.push(arqueo);
+  guardarJSON('guayoyo_arqueos',arqueos);
+  sincronizarEnNube('arqueo',arqueo);
+  ['arqueoEfectivoBs','arqueoEfectivoUSD','arqueoBancoBs','arqueoNota'].forEach(function(id){document.getElementById(id).value='';});
+  previewArqueo();
+  renderBalance();
+  renderHistorialArqueos();
+  showToast(sinDif?'✅ Todo cuadra':'✅ Cuadre guardado, balance ajustado');
+}
+function eliminarArqueo(id){
+  if(!confirm('¿Eliminar este cuadre? El ajuste que hizo al balance se deshace.')) return;
+  const arqueos=cargarJSON('guayoyo_arqueos');
+  const idx=arqueos.findIndex(function(q){return q.id===id;});
+  if(idx<0) return;
+  arqueos[idx]=Object.assign({},arqueos[idx],{_eliminado:true,_ts:Date.now()});
+  guardarJSON('guayoyo_arqueos',arqueos);
+  sincronizarEnNube('arqueo',arqueos[idx]);
+  renderBalance(); renderHistorialArqueos(); previewArqueo();
+}
+function toggleHistorialArqueos(){
+  const box=document.getElementById('arqueosHistorialBox');
+  const abrir=box.style.display!=='block';
+  box.style.display=abrir?'block':'none';
+  document.getElementById('btnHistorialArqueos').textContent=(abrir?'▾':'▸')+' ver cuadres anteriores';
+  if(abrir) renderHistorialArqueos();
+}
+function renderHistorialArqueos(){
+  const box=document.getElementById('arqueosHistorialBox');
+  if(!box || box.style.display!=='block') return;
+  const arqueos=cargarActivos('guayoyo_arqueos').slice().sort(function(a,b){return (b._ts||0)-(a._ts||0);});
+  box.innerHTML=arqueos.length?arqueos.map(function(q){
+    const partes=[];
+    if(q.realEfectivoBs!==null&&q.realEfectivoBs!==undefined) partes.push('💴 '+difTexto(q.difEfectivoBs||0,fmtBs));
+    if(q.realEfectivoUSD!==null&&q.realEfectivoUSD!==undefined) partes.push('💵 '+difTexto(q.difEfectivoUSD||0,fmt$));
+    if(q.realBancoBs!==null&&q.realBancoBs!==undefined) partes.push('🏦 '+difTexto(q.difBancoBs||0,fmtBs));
+    return '<div class="cierre-pasado"><div style="display:flex;justify-content:space-between;align-items:center;">'+
+      '<b>'+q.fecha+' '+(q.hora||'')+'</b>'+
+      '<button class="list-item-del" style="margin:0;" onclick="eliminarArqueo(\''+q.id+'\')">eliminar</button></div>'+
+      '<div style="margin-top:4px;">'+partes.join(' · ')+'</div>'+
+      (q.nota?'<div style="margin-top:2px;">'+q.nota+'</div>':'')+'</div>';
+  }).join(''):'<div style="font-size:11px;color:var(--muted);">Sin cuadres todavía.</div>';
 }
 
 // ======================================================================
@@ -1823,6 +1970,8 @@ function renderHistorialCierres(){
 function renderResumen(){
   const dk=document.getElementById('resumenDate').value;
   renderBalance();
+  previewArqueo();
+  renderHistorialArqueos();
   renderCierre();
   const orders=getOrders(dk);const el=document.getElementById('resumenContent');
   if(!orders.length){el.innerHTML='<div class="empty"><div class="empty-icon">📊</div>Sin ventas este día</div>';return;}
@@ -2059,6 +2208,8 @@ async function sincronizarDesdeNube(){
     fusionar('guayoyo_capital',data.capital,'id','capital');
     fusionar('guayoyo_cierres',data.cierres,'id','cierre');
     fusionar('guayoyo_ahorros',data.ahorros,'id','ahorro');
+    fusionar('guayoyo_inventario',data.inventario,'id','inventario');
+    fusionar('guayoyo_arqueos',data.arqueos,'id','arqueo');
     return true;
   }catch(e){ console.warn('No se pudo sincronizar desde la nube',e); return false; }
 }
@@ -2123,6 +2274,7 @@ function renderTab(id){
   if(id==='facturas')renderFacturas();
   if(id==='empleados')renderEmpleados();
   if(id==='ahorros')renderAhorros();
+  if(id==='inventario')renderInventario();
 }
 
 async function showPage(id,tab){
@@ -2146,6 +2298,128 @@ async function showPage(id,tab){
     renderTab(id);
   }
 }
+// ===== INVENTARIO DE BEBIDAS =====
+const INV_ITEMS=['Refresco 250 ml','Refresco 1 L','Refresco 1.5 L','Refresco 2 L','Malta 250 ml','Malta 1.5 L','Malta desechable','Jugo del Valle 500 ml','Jugo del Valle 1.5 L','Yuky Pack','Gatorade','Agua mineral 600ml','Lipton'];
+// Qué descuenta cada producto del menú: {item de inventario: unidades}
+const INV_CONSUMO={
+  'Combo 2 Perros Clásicos + 2 refrescos de vaso':{'Refresco 2 L':0.2},
+  'Combo 2 PepiPerros + 2 refrescos de vaso':{'Refresco 2 L':0.2}
+};
+INV_ITEMS.forEach(function(n){ INV_CONSUMO[n]={}; INV_CONSUMO[n][n]=1; });
+const INV_MINIMO=5;
+let editandoInvId=null;
+
+function calcularInventario(){
+  const stock={}, vendido={}, entradas={};
+  INV_ITEMS.forEach(function(n){ stock[n]=0; vendido[n]=0; entradas[n]=0; });
+  cargarActivos('guayoyo_inventario').forEach(function(m){
+    if(stock[m.producto]===undefined) return;
+    stock[m.producto]+=(Number(m.cantidad)||0);
+    entradas[m.producto]+=(Number(m.cantidad)||0);
+  });
+  cargarActivos('guayoyo_pedidos').forEach(function(o){
+    (o.items||[]).forEach(function(it){
+      const c=INV_CONSUMO[it.name]; if(!c) return;
+      Object.keys(c).forEach(function(inv){
+        const u=c[inv]*(Number(it.qty)||0);
+        stock[inv]-=u; vendido[inv]+=u;
+      });
+    });
+  });
+  return {stock:stock,vendido:vendido,entradas:entradas};
+}
+function fmtInv(n){ return (Math.round(n*10)/10).toString(); }
+
+function renderInventario(){
+  const sel=document.getElementById('invProducto');
+  if(sel && !sel.options.length){
+    sel.innerHTML=INV_ITEMS.map(function(n){return '<option value="'+n+'">'+n+'</option>';}).join('');
+  }
+  const r=calcularInventario();
+  const el=document.getElementById('inventarioStock');
+  if(el){
+    el.innerHTML=INV_ITEMS.map(function(n){
+      const st=r.stock[n];
+      const color=st<=0?'#c0392b':(st<=INV_MINIMO?'#d68910':'var(--texto)');
+      const alerta=st<=0?' · ⛔ agotado':(st<=INV_MINIMO?' · ⚠️ poco stock':'');
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border);">'+
+        '<div><div style="font-size:13px;font-weight:700;">'+n+'</div>'+
+        '<div style="font-size:11px;color:var(--muted);">entradas '+fmtInv(r.entradas[n])+' · vendidas '+fmtInv(r.vendido[n])+alerta+'</div></div>'+
+        '<div style="font-size:16px;font-weight:800;color:'+color+';">'+fmtInv(st)+'</div></div>';
+    }).join('');
+  }
+  const hist=document.getElementById('inventarioHistorial');
+  if(hist){
+    const movs=cargarActivos('guayoyo_inventario').slice().sort(function(a,b){return (b._ts||0)-(a._ts||0);});
+    hist.innerHTML=movs.length?movs.map(function(m){
+      const q=Number(m.cantidad)||0;
+      return '<div class="list-item"><div>'+
+        '<div class="list-item-title">'+m.producto+'</div>'+
+        '<div class="list-item-sub">'+m.fecha+' · '+(m.tipo==='ajuste'?'ajuste':'entrada')+(m.nota?(' · '+m.nota):'')+'</div>'+
+        '<button class="list-item-edit" onclick="editarInventario(\''+m.id+'\')">✏️ editar</button>'+
+        '<button class="list-item-del" onclick="eliminarInventario(\''+m.id+'\')">eliminar</button></div>'+
+        '<div class="list-item-amount" style="color:'+(q<0?'#c0392b':'var(--azul)')+';">'+(q>0?'+':'')+fmtInv(q)+'</div></div>';
+    }).join(''):'<div style="font-size:12px;color:var(--muted);">Sin movimientos todavía.</div>';
+  }
+}
+
+function agregarInventario(){
+  const producto=document.getElementById('invProducto').value;
+  const tipo=document.getElementById('invTipo').value;
+  const cantidad=parseFloat(document.getElementById('invCantidad').value);
+  const nota=document.getElementById('invNota').value.trim();
+  if(!producto||isNaN(cantidad)||cantidad===0){ alert('Indica el producto y una cantidad distinta de cero.'); return; }
+  if(tipo==='entrada' && cantidad<0){ alert('Una entrada no puede ser negativa. Usa "Ajuste" para restar.'); return; }
+  const movs=cargarJSON('guayoyo_inventario');
+  if(editandoInvId){
+    const idx=movs.findIndex(function(m){return m.id===editandoInvId;});
+    if(idx>=0){
+      movs[idx]=Object.assign({},movs[idx],{producto:producto,tipo:tipo,cantidad:cantidad,nota:nota,_ts:Date.now()});
+      guardarJSON('guayoyo_inventario',movs);
+      sincronizarEnNube('inventario',movs[idx]);
+      showToast('✅ Movimiento actualizado');
+    }
+    editandoInvId=null;
+    document.getElementById('btnGuardarInv').textContent='+ Registrar';
+  } else {
+    const mov={id:uid(),fecha:todayKey(),producto:producto,tipo:tipo,cantidad:cantidad,nota:nota,_ts:Date.now()};
+    movs.push(mov);
+    guardarJSON('guayoyo_inventario',movs);
+    sincronizarEnNube('inventario',mov);
+    showToast('✅ '+(tipo==='ajuste'?'Ajuste':'Entrada')+' registrada');
+  }
+  document.getElementById('invCantidad').value='';
+  document.getElementById('invNota').value='';
+  renderInventario();
+}
+function editarInventario(id){
+  const m=cargarActivos('guayoyo_inventario').find(function(x){return x.id===id;});
+  if(!m) return;
+  editandoInvId=id;
+  document.getElementById('invProducto').value=m.producto;
+  document.getElementById('invTipo').value=m.tipo||'entrada';
+  document.getElementById('invCantidad').value=m.cantidad;
+  document.getElementById('invNota').value=m.nota||'';
+  document.getElementById('btnGuardarInv').textContent='💾 Guardar cambios';
+  document.getElementById('invCantidad').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function eliminarInventario(id){
+  if(!confirm('¿Eliminar este movimiento de inventario?')) return;
+  const movs=cargarJSON('guayoyo_inventario');
+  const idx=movs.findIndex(function(m){return m.id===id;});
+  if(idx<0) return;
+  movs[idx]=Object.assign({},movs[idx],{_eliminado:true,_ts:Date.now()});
+  guardarJSON('guayoyo_inventario',movs);
+  sincronizarEnNube('inventario',movs[idx]);
+  renderInventario();
+}
+function toggleInvHistorial(){
+  const el=document.getElementById('inventarioHistorial'), btn=document.getElementById('btnInvHistorial');
+  const abierto=el.style.display!=='none';
+  el.style.display=abierto?'none':'block';
+  btn.textContent=(abierto?'▸':'▾')+' ver historial de entradas y ajustes';
+}
+
 function showToast(msg){
   const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
   setTimeout(function(){t.classList.remove('show');},2500);
