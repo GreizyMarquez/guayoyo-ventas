@@ -437,11 +437,49 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
     <div id="cierresHistorialBox" style="display:none;margin-top:8px;"></div>
   </div>
   <div class="form-card">
+    <h3>🤝 Aportes de socios y cambio de $</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Para cuando falta dinero para una factura: un socio pone Bs (y luego se le devuelve en USDT), o se venden dólares en efectivo para completar el pago. Después de registrar aquí, paga la factura como siempre.</div>
+
+    <div style="font-size:11px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:0.5px;margin:6px 0;">Socio pone Bs</div>
+    <div class="form-row"><label>Socio</label><input type="text" id="aporteSocio" placeholder="Ej: Greizy"></div>
+    <div class="form-row"><label>Monto que puso (Bs)</label><input type="number" id="aporteBs" inputmode="decimal" placeholder="0" oninput="previewAporte()"></div>
+    <div class="form-row"><label>Tasa Bs/$ ese día</label><input type="number" id="aporteTasa" inputmode="decimal" placeholder="0" oninput="previewAporte()"></div>
+    <div class="form-row">
+      <label>¿Dónde entra ese Bs?</label>
+      <div class="pay-methods" style="grid-template-columns:1fr 1fr;">
+        <button class="pay-btn selected" id="aporteDestino-bancoBs" onclick="selDestinoCapital('aporte','bancoBs')">🏦 Banco Bs</button>
+        <button class="pay-btn" id="aporteDestino-efectivoBs" onclick="selDestinoCapital('aporte','efectivoBs')">💴 Efectivo Bs</button>
+      </div>
+    </div>
+    <div class="form-row"><label>Nota (opcional)</label><input type="text" id="aporteNota" placeholder="Ej: para factura de harina"></div>
+    <div id="aportePreview" style="background:var(--fondo);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);margin-bottom:10px;">Ingresa el monto y la tasa</div>
+    <button class="btn-secundario" onclick="guardarAporte()">Registrar aporte</button>
+
+    <div style="font-size:11px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 6px;">Vender $ en efectivo → Bs</div>
+    <div class="form-row"><label>Dólares que se venden ($)</label><input type="number" id="cambioUSD" inputmode="decimal" placeholder="0" oninput="previewCambio()"></div>
+    <div class="form-row"><label>Tasa de venta (Bs por $)</label><input type="number" id="cambioTasa" inputmode="decimal" placeholder="0" oninput="previewCambio()"></div>
+    <div class="form-row">
+      <label>¿Dónde entra el Bs?</label>
+      <div class="pay-methods" style="grid-template-columns:1fr 1fr;">
+        <button class="pay-btn selected" id="cambioDestino-bancoBs" onclick="selDestinoCapital('cambio','bancoBs')">🏦 Banco Bs</button>
+        <button class="pay-btn" id="cambioDestino-efectivoBs" onclick="selDestinoCapital('cambio','efectivoBs')">💴 Efectivo Bs</button>
+      </div>
+    </div>
+    <div class="form-row"><label>Nota (opcional)</label><input type="text" id="cambioNota" placeholder="Ej: completar pago de gas"></div>
+    <div id="cambioPreview" style="background:var(--fondo);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);margin-bottom:10px;">Ingresa el monto y la tasa</div>
+    <button class="btn-secundario" onclick="guardarCambio()">Registrar venta de $</button>
+
+    <button class="toggle-link" onclick="toggleHistorialMovCapital()" id="btnHistorialMovCapital" style="margin:14px 0 0;">▸ ver aportes y cambios</button>
+    <div id="movCapitalBox" style="display:none;margin-top:8px;"></div>
+  </div>
+  <div class="form-card">
     <h3>🏁 Capital inicial</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">El balance cuenta desde la fecha de inicio. Ventas, gastos, nómina y cuadres anteriores a esa fecha quedan en el historial pero no se suman ni restan.</div>
+    <div class="form-row"><label>📅 Cuenta desde</label><input type="date" id="capitalFecha"></div>
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Ponlo una sola vez, el día que empieces a usar la app (o cuando quieras corregirlo). No hace falta repetirlo cada día.</div>
     <div class="form-row"><label>Efectivo Bs</label><input type="number" id="capitalEfectivoBs" inputmode="decimal" placeholder="0"></div>
     <div class="form-row"><label>Efectivo $</label><input type="number" id="capitalEfectivoUSD" inputmode="decimal" placeholder="0"></div>
-    <div class="form-row"><label>Banco (Bs) — Pago Móvil + POS</label><input type="number" id="capitalBancoBs" inputmode="decimal" placeholder="0"></div>
+    <div class="form-row"><label>Banco (Bs) — saldo real de la cuenta ese día</label><input type="number" id="capitalBancoBs" inputmode="decimal" placeholder="0"></div>
     <button class="btn-secundario" onclick="guardarCapitalInicial()">Guardar capital inicial</button>
   </div>
   <div class="date-select">
@@ -1681,12 +1719,21 @@ function guardarCapitalInicial(){
   const efectivoBs=parseFloat(document.getElementById('capitalEfectivoBs').value)||0;
   const efectivoUSD=parseFloat(document.getElementById('capitalEfectivoUSD').value)||0;
   const bancoBs=parseFloat(document.getElementById('capitalBancoBs').value)||0;
-  const registro={id:'capital',efectivoBs:efectivoBs,efectivoUSD:efectivoUSD,bancoBs:bancoBs,fecha:todayKey(),_ts:Date.now()};
+  const fecha=document.getElementById('capitalFecha').value||todayKey();
+  const registro={id:'capital',efectivoBs:efectivoBs,efectivoUSD:efectivoUSD,bancoBs:bancoBs,fecha:fecha,_ts:Date.now()};
   guardarJSON('guayoyo_capital',[registro]);
   sincronizarEnNube('capital',registro);
   renderBalance();
   showToast('✅ Capital inicial guardado');
 }
+
+// Fecha desde la que el balance cuenta movimientos. Lo anterior queda en el
+// historial pero no afecta el balance (sirve para "empezar de cero").
+function fechaInicioBalance(){
+  const capital=cargarActivos('guayoyo_capital')[0];
+  return (capital && capital.fecha) ? capital.fecha : '0000-00-00';
+}
+function desdeInicio(fecha){ return !fecha || fecha>=fechaInicioBalance(); }
 
 function calcularBalance(){
   const balance={efectivoBs:0,efectivoUSD:0,bancoBs:0};
@@ -1702,6 +1749,7 @@ function calcularBalance(){
   // deposita al día siguiente. El POS de un GASTO/PAGO (tarjeta) sale del
   // banco de inmediato, igual que cuando pagas con débito.
   function aplicar(fecha,metodo,montoBs,montoUSD,signo){
+    if(!desdeInicio(fecha)) return; // anterior a la fecha de inicio
     if(metodo==='EDIV'){ balance.efectivoUSD+=signo*(montoUSD||0); return; }
     if(metodo==='EBS'){ balance.efectivoBs+=signo*(montoBs||0); return; }
     if(metodo==='PM'){ balance.bancoBs+=signo*(montoBs||0); return; }
@@ -1725,6 +1773,7 @@ function calcularBalance(){
     aplicar(p.fecha,p.metodoPago,p.netoBs,p.netoUSD,-1);
   });
   cargarActivos('guayoyo_ahorros').forEach(function(a){
+    if(!desdeInicio(a.fecha)) return;
     if(a.tipo==='venta'){
       if(a.destino==='efectivoBs') balance.efectivoBs+=(a.montoBs||0);
       else balance.bancoBs+=(a.montoBs||0);
@@ -1735,9 +1784,18 @@ function calcularBalance(){
     }
   });
 
+  // Aportes de socios (entra Bs) y ventas de $ en efectivo (sale $, entra Bs)
+  cargarActivos('guayoyo_mov_capital').forEach(function(m){
+    if(!desdeInicio(m.fecha)) return;
+    const dest=(m.destino==='efectivoBs')?'efectivoBs':'bancoBs';
+    balance[dest]+=(m.montoBs||0);
+    if(m.tipo==='cambio') balance.efectivoUSD-=(m.montoUSD||0);
+  });
+
   // Cuadres de caja: la diferencia entre lo contado y lo calculado se
   // aplica como ajuste para que el balance refleje el dinero real.
   cargarActivos('guayoyo_arqueos').forEach(function(q){
+    if(!desdeInicio(q.fecha)) return;
     balance.efectivoBs+=(q.difEfectivoBs||0);
     balance.efectivoUSD+=(q.difEfectivoUSD||0);
     balance.bancoBs+=(q.difBancoBs||0);
@@ -1758,15 +1816,16 @@ function calcularDetalleBalance(){
   const hoy=todayKey();
   const capital=cargarActivos('guayoyo_capital')[0]||{};
   const detalle={
-    efectivoBs:[{label:'Capital inicial',valor:capital.efectivoBs||0}],
-    efectivoUSD:[{label:'Capital inicial',valor:capital.efectivoUSD||0}],
-    bancoBs:[{label:'Capital inicial',valor:capital.bancoBs||0}]
+    efectivoBs:[{label:'Capital inicial ('+(capital.fecha||'—')+')',valor:capital.efectivoBs||0}],
+    efectivoUSD:[{label:'Capital inicial ('+(capital.fecha||'—')+')',valor:capital.efectivoUSD||0}],
+    bancoBs:[{label:'Capital inicial ('+(capital.fecha||'—')+')',valor:capital.bancoBs||0}]
   };
 
   function sumar(lista,campoFecha,campoMetodo,campoBs,campoUSD,prefijo,esIngreso){
     const t={PM:0,POS:0,EBS:0,EDIV:0};
     lista.forEach(function(item){
       const metodo=item[campoMetodo];
+      if(!desdeInicio(item[campoFecha])) return; // anterior a la fecha de inicio
       if(esIngreso && metodo==='POS' && item[campoFecha]>=hoy) return; // venta POS aun no liquidada
       if(t[metodo]!==undefined) t[metodo]+= metodo==='EDIV' ? (item[campoUSD]||0) : (item[campoBs]||0);
     });
@@ -1786,6 +1845,7 @@ function calcularDetalleBalance(){
   sumar(cargarActivos('guayoyo_pagos_nomina'),'fecha','metodoPago','netoBs','netoUSD','− Nómina',false);
 
   cargarActivos('guayoyo_ahorros').forEach(function(a){
+    if(!desdeInicio(a.fecha)) return;
     if(a.tipo==='venta'){
       const bucket=a.destino==='efectivoBs'?'efectivoBs':'bancoBs';
       detalle[bucket].push({label:'+ Venta de ahorros (USDT)',valor:a.montoBs||0});
@@ -1794,7 +1854,19 @@ function calcularDetalleBalance(){
     }
   });
 
+  cargarActivos('guayoyo_mov_capital').forEach(function(m){
+    if(!desdeInicio(m.fecha)) return;
+    const dest=(m.destino==='efectivoBs')?'efectivoBs':'bancoBs';
+    if(m.tipo==='aporte'){
+      detalle[dest].push({label:'+ Aporte de '+(m.socio||'socio')+' '+m.fecha,valor:m.montoBs||0});
+    } else {
+      detalle[dest].push({label:'+ Venta de $ '+m.fecha+' ('+(m.montoUSD||0).toFixed(2)+' a '+m.tasa+')',valor:m.montoBs||0});
+      detalle.efectivoUSD.push({label:'− Venta de $ '+m.fecha,valor:-(m.montoUSD||0)});
+    }
+  });
+
   cargarActivos('guayoyo_arqueos').forEach(function(q){
+    if(!desdeInicio(q.fecha)) return;
     const lbl='Cuadre de caja '+q.fecha+(q.nota?(' ('+q.nota+')'):'');
     if(Math.abs(q.difEfectivoBs||0)>0.004) detalle.efectivoBs.push({label:((q.difEfectivoBs>0)?'+ ':'− ')+lbl,valor:q.difEfectivoBs});
     if(Math.abs(q.difEfectivoUSD||0)>0.004) detalle.efectivoUSD.push({label:((q.difEfectivoUSD>0)?'+ ':'− ')+lbl,valor:q.difEfectivoUSD});
@@ -1843,6 +1915,8 @@ function renderBalance(){
     if(eb && document.activeElement!==eb) eb.value=capital.efectivoBs||'';
     if(eu && document.activeElement!==eu) eu.value=capital.efectivoUSD||'';
     if(bb && document.activeElement!==bb) bb.value=capital.bancoBs||'';
+    const cf=document.getElementById('capitalFecha');
+    if(cf && document.activeElement!==cf && !cf.value) cf.value=capital.fecha||todayKey();
   }
 }
 
@@ -1928,13 +2002,25 @@ function renderHistorialArqueos(){
 // ======================================================================
 // CIERRE DEL DÍA (uno diario, no por turno)
 // ======================================================================
+// Convierte "9:05 PM" a minutos del día (1265) para comparar horas de verdad
+// y no como texto (en texto "9:10 AM" > "9:05 PM", y eso dejaba pedidos
+// de la mañana como pendientes después de cerrar el día).
+function minutosDe(hora12){
+  if(!hora12) return -1;
+  const m=String(hora12).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+  if(!m) return -1;
+  let h=parseInt(m[1],10); const min=parseInt(m[2],10);
+  if(m[3]){ const pm=m[3].toUpperCase()==='PM'; if(h===12) h=pm?12:0; else if(pm) h+=12; }
+  return h*60+min;
+}
 function ultimoCierreHoraHoy(dk){
-  const cierres=cargarActivos('guayoyo_cierres').filter(function(c){return c.fecha===dk;}).sort(function(a,b){return b.horaCierre.localeCompare(a.horaCierre);});
+  const cierres=cargarActivos('guayoyo_cierres').filter(function(c){return c.fecha===dk;}).sort(function(a,b){return minutosDe(b.horaCierre)-minutosDe(a.horaCierre);});
   return cierres.length ? cierres[0].horaCierre : null;
 }
 function pedidosPendientesDeCierre(dk){
   const desde=ultimoCierreHoraHoy(dk);
-  return getOrders(dk).filter(function(o){return o.estado==='pagado' && (!desde || (o.horaPago||o.time) > desde);});
+  const desdeMin=minutosDe(desde);
+  return getOrders(dk).filter(function(o){return o.estado==='pagado' && (!desde || minutosDe(o.horaPago||o.time) > desdeMin);});
 }
 function cerrarDia(){
   const dk=document.getElementById('resumenDate').value;
@@ -1999,12 +2085,136 @@ function renderHistorialCierres(){
   }).join('') : '<div style="font-size:11px;color:var(--muted);">Sin cierres todavía.</div>';
 }
 
+
+// ======================================================================
+// APORTES DE SOCIOS y VENTA DE $ EN EFECTIVO (movimientos de capital)
+// ======================================================================
+const destinoCapitalSel={aporte:'bancoBs',cambio:'bancoBs'};
+function selDestinoCapital(tipo,destino){
+  destinoCapitalSel[tipo]=destino;
+  ['bancoBs','efectivoBs'].forEach(function(d){
+    const b=document.getElementById(tipo+'Destino-'+d); if(b) b.classList.toggle('selected',d===destino);
+  });
+}
+function numVal(id){ const el=document.getElementById(id); return el?(parseFloat(el.value)||0):0; }
+function prefillTasaCapital(){
+  const t=tasaUSDParaFecha(todayKey())||0;
+  ['aporteTasa','cambioTasa'].forEach(function(id){ const el=document.getElementById(id); if(el && !el.value && t) el.value=t; });
+}
+function previewAporte(){
+  const bs=numVal('aporteBs'), tasa=numVal('aporteTasa');
+  const el=document.getElementById('aportePreview'); if(!el) return;
+  if(!bs||!tasa){ el.textContent='Ingresa el monto y la tasa'; return; }
+  el.innerHTML='Equivale a <b>$'+(bs/tasa).toFixed(2)+'</b> — se le devuelve al socio en USDT';
+}
+function previewCambio(){
+  const usd=numVal('cambioUSD'), tasa=numVal('cambioTasa');
+  const el=document.getElementById('cambioPreview'); if(!el) return;
+  if(!usd||!tasa){ el.textContent='Ingresa el monto y la tasa'; return; }
+  const b=calcularBalance();
+  el.innerHTML='Salen <b>$'+usd.toFixed(2)+'</b> del efectivo (tienes '+fmt$(b.efectivoUSD)+') y entran <b>'+fmtBs(usd*tasa)+'</b>';
+}
+function guardarAporte(){
+  const socio=document.getElementById('aporteSocio').value.trim();
+  const bs=numVal('aporteBs'), tasa=numVal('aporteTasa');
+  if(!socio){ alert('Escribe el nombre del socio'); return; }
+  if(bs<=0||tasa<=0){ alert('Monto y tasa deben ser mayores a 0'); return; }
+  const mov={id:uid(),tipo:'aporte',fecha:todayKey(),socio:socio,montoBs:bs,tasa:tasa,montoUSD:bs/tasa,
+    destino:destinoCapitalSel.aporte,estado:'pendiente',pagoFecha:null,pagoUSDT:0,pagoOrigen:null,
+    nota:document.getElementById('aporteNota').value.trim(),_ts:Date.now()};
+  const lista=cargarJSON('guayoyo_mov_capital'); lista.push(mov); guardarJSON('guayoyo_mov_capital',lista);
+  sincronizarEnNube('mov_capital',mov);
+  ['aporteSocio','aporteBs','aporteNota'].forEach(function(id){document.getElementById(id).value='';});
+  previewAporte(); renderBalance(); renderHistorialMovCapital();
+  showToast('🤝 Aporte de '+socio+' registrado: '+fmtBs(bs));
+}
+function guardarCambio(){
+  const usd=numVal('cambioUSD'), tasa=numVal('cambioTasa');
+  if(usd<=0||tasa<=0){ alert('Monto y tasa deben ser mayores a 0'); return; }
+  const b=calcularBalance();
+  if(usd>b.efectivoUSD+0.005 && !confirm('Tienes '+fmt$(b.efectivoUSD)+' en efectivo y vas a vender $'+usd.toFixed(2)+'. ¿Registrar igual?')) return;
+  const mov={id:uid(),tipo:'cambio',fecha:todayKey(),montoUSD:usd,tasa:tasa,montoBs:usd*tasa,
+    destino:destinoCapitalSel.cambio,nota:document.getElementById('cambioNota').value.trim(),_ts:Date.now()};
+  const lista=cargarJSON('guayoyo_mov_capital'); lista.push(mov); guardarJSON('guayoyo_mov_capital',lista);
+  sincronizarEnNube('mov_capital',mov);
+  ['cambioUSD','cambioNota'].forEach(function(id){document.getElementById(id).value='';});
+  previewCambio(); renderBalance(); renderHistorialMovCapital();
+  showToast('💱 Vendidos $'+usd.toFixed(2)+' → '+fmtBs(usd*tasa));
+}
+function pagarAporteUSDT(id){
+  const lista=cargarJSON('guayoyo_mov_capital');
+  const idx=lista.findIndex(function(m){return m.id===id;}); if(idx<0) return;
+  const m=lista[idx];
+  const sugerido=(m.montoUSD||0).toFixed(2);
+  const usdtStr=prompt('¿Cuántos USDT se le pagaron a '+m.socio+'? (equivalente: '+sugerido+')',sugerido);
+  if(usdtStr===null) return;
+  const usdt=parseFloat(usdtStr)||0; if(usdt<=0){ alert('Monto inválido'); return; }
+  const deAhorros=confirm('¿Salieron de los USDT de Ahorros del negocio?\n\nAceptar = sí, descontar de Ahorros\nCancelar = no, se pagaron con USDT de afuera');
+  lista[idx]=Object.assign({},m,{estado:'pagado',pagoFecha:todayKey(),pagoUSDT:usdt,pagoOrigen:deAhorros?'ahorros':'externo',_ts:Date.now()});
+  guardarJSON('guayoyo_mov_capital',lista);
+  sincronizarEnNube('mov_capital',lista[idx]);
+  if(deAhorros){
+    // Registro en Ahorros como salida de USDT sin generar Bs (no entra dinero al negocio)
+    const ah={id:uid(),fecha:todayKey(),tipo:'venta',usdt:usdt,tasa:0,montoBs:0,destino:'bancoBs',nota:'Pago a socio '+m.socio+' por aporte del '+m.fecha,_ts:Date.now()};
+    const ahorros=cargarJSON('guayoyo_ahorros'); ahorros.push(ah); guardarJSON('guayoyo_ahorros',ahorros);
+    sincronizarEnNube('ahorro',ah);
+    if(typeof renderAhorros==='function') renderAhorros();
+  }
+  renderHistorialMovCapital();
+  showToast('✅ Pagado a '+m.socio+': '+usdt.toFixed(2)+' USDT');
+}
+function eliminarMovCapital(id){
+  if(!confirm('¿Eliminar este registro?')) return;
+  const lista=cargarJSON('guayoyo_mov_capital');
+  const idx=lista.findIndex(function(m){return m.id===id;}); if(idx<0) return;
+  lista[idx]=Object.assign({},lista[idx],{_eliminado:true,_ts:Date.now()});
+  guardarJSON('guayoyo_mov_capital',lista);
+  sincronizarEnNube('mov_capital',lista[idx]);
+  renderBalance(); renderHistorialMovCapital();
+}
+function toggleHistorialMovCapital(){
+  const box=document.getElementById('movCapitalBox');
+  const abrir=box.style.display!=='block';
+  box.style.display=abrir?'block':'none';
+  document.getElementById('btnHistorialMovCapital').textContent=(abrir?'▾':'▸')+' ver aportes y cambios';
+  if(abrir) renderHistorialMovCapital();
+}
+function renderHistorialMovCapital(){
+  const box=document.getElementById('movCapitalBox'); if(!box) return;
+  const lista=cargarActivos('guayoyo_mov_capital').slice().sort(function(a,b){return (b._ts||0)-(a._ts||0);});
+  const btn=document.getElementById('btnHistorialMovCapital');
+  const pend=lista.filter(function(m){return m.tipo==='aporte'&&m.estado==='pendiente';});
+  if(btn){ const abierto=box.style.display==='block'; btn.textContent=(abierto?'▾':'▸')+' ver aportes y cambios'+(pend.length?(' · '+pend.length+' por pagar'):''); }
+  if(box.style.display!=='block') return;
+  if(!lista.length){ box.innerHTML='<div style="font-size:11px;color:var(--muted);">Sin registros</div>'; return; }
+  box.innerHTML=lista.map(function(m){
+    const dest=m.destino==='efectivoBs'?'💴 Efectivo Bs':'🏦 Banco Bs';
+    if(m.tipo==='aporte'){
+      const pagado=m.estado==='pagado';
+      return '<div class="list-item"><div class="list-item-info">'+
+        '<div class="list-item-title">🤝 '+m.socio+' puso '+fmtBs(m.montoBs)+' <span style="color:var(--muted);font-weight:400;">(≈ $'+(m.montoUSD||0).toFixed(2)+')</span></div>'+
+        '<div class="list-item-sub">'+m.fecha+' · tasa '+m.tasa+' · entró a '+dest+(m.nota?(' · '+m.nota):'')+'</div>'+
+        '<div class="list-item-sub" style="color:'+(pagado?'#166534':'#b07d00')+';font-weight:700;">'+(pagado?('✅ Pagado '+m.pagoFecha+' · '+(m.pagoUSDT||0).toFixed(2)+' USDT'+(m.pagoOrigen==='ahorros'?' (de Ahorros)':'')):'🕐 Pendiente de pagar en USDT')+'</div>'+
+        '<div style="margin-top:6px;">'+(pagado?'':('<button class="list-item-edit" onclick="pagarAporteUSDT(\''+m.id+'\')">💸 marcar pagado en USDT</button>'))+
+        '<button class="list-item-del" style="margin-top:0;" onclick="eliminarMovCapital(\''+m.id+'\')">eliminar</button></div>'+
+        '</div></div>';
+    }
+    return '<div class="list-item"><div class="list-item-info">'+
+      '<div class="list-item-title">💱 Vendidos $'+(m.montoUSD||0).toFixed(2)+' → '+fmtBs(m.montoBs)+'</div>'+
+      '<div class="list-item-sub">'+m.fecha+' · tasa '+m.tasa+' · entró a '+dest+(m.nota?(' · '+m.nota):'')+'</div>'+
+      '<div style="margin-top:6px;"><button class="list-item-del" style="margin-top:0;" onclick="eliminarMovCapital(\''+m.id+'\')">eliminar</button></div>'+
+      '</div></div>';
+  }).join('');
+}
+
 function renderResumen(){
   const dk=document.getElementById('resumenDate').value;
   renderBalance();
   previewArqueo();
   renderHistorialArqueos();
   renderCierre();
+  prefillTasaCapital();
+  renderHistorialMovCapital();
   const orders=getOrders(dk);const el=document.getElementById('resumenContent');
   if(!orders.length){el.innerHTML='<div class="empty"><div class="empty-icon">📊</div>Sin ventas este día</div>';return;}
   const byPay={},byProduct={};let totalUSD=0,totalBs=0;
@@ -2246,6 +2456,7 @@ async function sincronizarDesdeNube(){
     fusionar('guayoyo_ahorros',data.ahorros,'id','ahorro');
     fusionar('guayoyo_inventario',data.inventario,'id','inventario');
     fusionar('guayoyo_arqueos',data.arqueos,'id','arqueo');
+    fusionar('guayoyo_mov_capital',data.mov_capital,'id','mov_capital');
     return true;
   }catch(e){ console.warn('No se pudo sincronizar desde la nube',e); return false; }
 }
