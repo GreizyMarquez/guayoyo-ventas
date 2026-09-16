@@ -417,8 +417,20 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
     <button class="toggle-link" onclick="toggleDetalleBalance()" id="btnDetalleBalance" style="margin-top:10px;">▸ ver de dónde sale cada monto</button>
     <div id="detalleBalanceBox" style="display:none;"></div>
   </div>
+  <div class="summary-card">
+    <h3>🔒 Cierre del día</h3>
+    <div id="cierreContent"></div>
+    <button class="btn-secundario" onclick="cerrarDia()" style="margin-top:10px;">Cerrar el día</button>
+    <button class="toggle-link" onclick="toggleHistorialCierres()" id="btnHistorialCierres" style="margin:10px 0 0;">▸ ver cierres anteriores</button>
+    <div id="cierresHistorialBox" style="display:none;margin-top:8px;"></div>
+  </div>
   <div class="form-card">
-    <h3>🧮 Cuadre de caja (dinero real)</h3>
+    <h3>🧮 Cuadre, aportes y cambio de $</h3>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:4px;">Toca cada sección para abrirla. Cuadre: pon el dinero real. Aportes: un socio pone Bs y luego se le devuelve en USDT. Cambio: se venden $ en efectivo para completar un pago.</div>
+
+    <button class="toggle-link" id="btnSec-cuadre" onclick="toggleSeccion('cuadre')" style="margin:8px 0 0;font-size:12px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:0.5px;">▸ 🧮 Cuadre de caja (dinero real)</button>
+    <div id="sec-cuadre" style="display:none;margin-top:8px;">
+
     <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Cuenta lo que hay de verdad y escríbelo aquí. Te muestro la diferencia con lo que el app calcula. Al guardar, el balance queda igual al dinero real y la diferencia queda registrada para que no se pierda.</div>
     <div class="form-row"><label>💴 Efectivo Bs contado</label><input type="number" id="arqueoEfectivoBs" inputmode="decimal" placeholder="0" oninput="previewArqueo()"></div>
     <div class="form-row"><label>💵 Efectivo $ contado</label><input type="number" id="arqueoEfectivoUSD" inputmode="decimal" placeholder="0" oninput="previewArqueo()"></div>
@@ -428,19 +440,9 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
     <button class="btn-secundario" onclick="guardarArqueo()">Guardar cuadre</button>
     <button class="toggle-link" onclick="toggleHistorialArqueos()" id="btnHistorialArqueos" style="margin:10px 0 0;">▸ ver cuadres anteriores</button>
     <div id="arqueosHistorialBox" style="display:none;margin-top:8px;"></div>
-  </div>
-  <div class="summary-card">
-    <h3>🔒 Cierre del día</h3>
-    <div id="cierreContent"></div>
-    <button class="btn-secundario" onclick="cerrarDia()" style="margin-top:10px;">Cerrar el día</button>
-    <button class="toggle-link" onclick="toggleHistorialCierres()" id="btnHistorialCierres" style="margin:10px 0 0;">▸ ver cierres anteriores</button>
-    <div id="cierresHistorialBox" style="display:none;margin-top:8px;"></div>
-  </div>
-  <div class="form-card">
-    <h3>🤝 Aportes de socios y cambio de $</h3>
-    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">Para cuando falta dinero para una factura: un socio pone Bs (y luego se le devuelve en USDT), o se venden dólares en efectivo para completar el pago. Después de registrar aquí, paga la factura como siempre.</div>
-
-    <div style="font-size:11px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:0.5px;margin:6px 0;">Socio pone Bs</div>
+    </div>
+    <button class="toggle-link" id="btnSec-aporte" onclick="toggleSeccion('aporte')" style="margin:8px 0 0;font-size:12px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:0.5px;">▸ 🤝 Socio pone Bs (se devuelve en USDT)</button>
+    <div id="sec-aporte" style="display:none;margin-top:8px;">
     <div class="form-row"><label>Socio</label><input type="text" id="aporteSocio" placeholder="Ej: Greizy"></div>
     <div class="form-row"><label>Monto que puso (Bs)</label><input type="number" id="aporteBs" inputmode="decimal" placeholder="0" oninput="previewAporte()"></div>
     <div class="form-row"><label>Tasa Bs/$ ese día</label><input type="number" id="aporteTasa" inputmode="decimal" placeholder="0" oninput="previewAporte()"></div>
@@ -455,7 +457,9 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
     <div id="aportePreview" style="background:var(--fondo);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);margin-bottom:10px;">Ingresa el monto y la tasa</div>
     <button class="btn-secundario" onclick="guardarAporte()">Registrar aporte</button>
 
-    <div style="font-size:11px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:0.5px;margin:18px 0 6px;">Vender $ en efectivo → Bs</div>
+    </div>
+    <button class="toggle-link" id="btnSec-cambio" onclick="toggleSeccion('cambio')" style="margin:8px 0 0;font-size:12px;font-weight:800;color:var(--azul);text-transform:uppercase;letter-spacing:0.5px;">▸ 💱 Vender $ en efectivo → Bs</button>
+    <div id="sec-cambio" style="display:none;margin-top:8px;">
     <div class="form-row"><label>Dólares que se venden ($)</label><input type="number" id="cambioUSD" inputmode="decimal" placeholder="0" oninput="previewCambio()"></div>
     <div class="form-row"><label>Tasa de venta (Bs por $)</label><input type="number" id="cambioTasa" inputmode="decimal" placeholder="0" oninput="previewCambio()"></div>
     <div class="form-row">
@@ -469,6 +473,7 @@ body{font-family:'Inter',sans-serif;background:var(--fondo);color:var(--texto);m
     <div id="cambioPreview" style="background:var(--fondo);border-radius:10px;padding:10px 12px;font-size:12px;color:var(--muted);margin-bottom:10px;">Ingresa el monto y la tasa</div>
     <button class="btn-secundario" onclick="guardarCambio()">Registrar venta de $</button>
 
+    </div>
     <button class="toggle-link" onclick="toggleHistorialMovCapital()" id="btnHistorialMovCapital" style="margin:14px 0 0;">▸ ver aportes y cambios</button>
     <div id="movCapitalBox" style="display:none;margin-top:8px;"></div>
   </div>
@@ -2089,6 +2094,13 @@ function renderHistorialCierres(){
 // ======================================================================
 // APORTES DE SOCIOS y VENTA DE $ EN EFECTIVO (movimientos de capital)
 // ======================================================================
+function toggleSeccion(id){
+  const box=document.getElementById('sec-'+id), btn=document.getElementById('btnSec-'+id);
+  if(!box||!btn) return;
+  const abrir=box.style.display!=='block';
+  box.style.display=abrir?'block':'none';
+  btn.textContent=(abrir?'▾ ':'▸ ')+btn.textContent.slice(2);
+}
 const destinoCapitalSel={aporte:'bancoBs',cambio:'bancoBs'};
 function selDestinoCapital(tipo,destino){
   destinoCapitalSel[tipo]=destino;
@@ -2474,7 +2486,8 @@ function fusionar(lsKey,remotos,clave,tipo){
       // No está en la nube. Si es más viejo que la última limpieza, se
       // borró a propósito — no lo resucitamos. Si es más nuevo, es un
       // registro legítimo pendiente de subir.
-      if((l._ts||0) < ultimaLimpiezaTs) return;
+      const enCola=cargarJSON(SYNC_PEND_KEY).some(function(p){ return p.tipo===tipo && String(p.registro[clave])===key; });
+      if((l._ts||0) < ultimaLimpiezaTs && !enCola) return;
       mapa[key]=l; aRepush.push(l);
     } else if((l._ts||0) > (remoto._ts||0)){
       mapa[key]=l; aRepush.push(l);
@@ -2484,14 +2497,61 @@ function fusionar(lsKey,remotos,clave,tipo){
   aRepush.forEach(function(item,i){ setTimeout(function(){ sincronizarEnNube(tipo,item); }, i*250); });
 }
 
-async function sincronizarEnNube(tipo,registro){
-  if(!APPS_SCRIPT_URL_GUAYOYO) return;
+// Cola de registros que no se pudieron subir (sin conexión, error del
+// script, etc.). Se reintenta sola al volver la conexión y cada minuto.
+// Así un inventario o aporte registrado sin señal no se queda solo en el
+// teléfono.
+const SYNC_PEND_KEY='guayoyo_sync_pendientes';
+function encolarPendiente(tipo,registro){
+  const cola=cargarJSON(SYNC_PEND_KEY).filter(function(p){ return !(p.tipo===tipo && String(p.registro.id||p.registro.fecha)===String(registro.id||registro.fecha)); });
+  cola.push({tipo:tipo,registro:registro,ts:Date.now()});
+  guardarJSON(SYNC_PEND_KEY,cola);
+  mostrarPendientes();
+}
+function quitarPendiente(tipo,registro){
+  const cola=cargarJSON(SYNC_PEND_KEY);
+  const nueva=cola.filter(function(p){ return !(p.tipo===tipo && String(p.registro.id||p.registro.fecha)===String(registro.id||registro.fecha) && (p.registro._ts||0)<=(registro._ts||0)); });
+  if(nueva.length!==cola.length) guardarJSON(SYNC_PEND_KEY,nueva);
+  mostrarPendientes();
+}
+function mostrarPendientes(){
+  const n=cargarJSON(SYNC_PEND_KEY).length;
+  let el=document.getElementById('pendBadge');
+  if(!el){
+    const badge=document.getElementById('syncBadge'); if(!badge) return;
+    el=document.createElement('div'); el.id='pendBadge'; el.style.cssText='font-size:11px;color:#FFD27C;margin-top:2px;';
+    badge.parentNode.insertBefore(el,badge.nextSibling);
+  }
+  el.textContent=n?('⏳ '+n+' registro(s) por subir — no borres datos del sitio'):'';
+}
+let reintentando=false;
+async function reintentarPendientes(){
+  if(reintentando || !APPS_SCRIPT_URL_GUAYOYO) return;
+  const cola=cargarJSON(SYNC_PEND_KEY); if(!cola.length) return;
+  reintentando=true;
+  try{
+    for(const p of cola){
+      const ok=await subirRegistro(p.tipo,p.registro);
+      if(!ok) break; // sigue sin conexión; lo dejamos para la próxima
+      quitarPendiente(p.tipo,p.registro);
+    }
+  } finally { reintentando=false; }
+}
+async function subirRegistro(tipo,registro){
   try{
     const resp=await fetch(APPS_SCRIPT_URL_GUAYOYO,{method:'POST',body:JSON.stringify({accion:'guardar',tipo:tipo,registro:registro})});
     const data=await resp.json();
-    mostrarEstadoSync(data.ok?'ok':'error');
-  }catch(e){ console.warn('No se pudo sincronizar',tipo,e); mostrarEstadoSync('error'); }
+    return !!data.ok;
+  }catch(e){ return false; }
 }
+async function sincronizarEnNube(tipo,registro){
+  if(!APPS_SCRIPT_URL_GUAYOYO) return;
+  const ok=await subirRegistro(tipo,registro);
+  if(ok){ quitarPendiente(tipo,registro); mostrarEstadoSync('ok'); }
+  else { console.warn('No se pudo sincronizar',tipo); encolarPendiente(tipo,registro); mostrarEstadoSync('error'); }
+}
+window.addEventListener('online',function(){ reintentarPendientes(); });
+setInterval(reintentarPendientes,60000);
 async function eliminarEnNube(tipo,id){
   if(!APPS_SCRIPT_URL_GUAYOYO) return;
   try{
@@ -2733,6 +2793,8 @@ window.onload=async function(){
   // La sincronización va después de pintar la pantalla, para que el app
   // se pueda usar de inmediato aunque la conexión esté lenta.
   mostrarEstadoSync(APPS_SCRIPT_URL_GUAYOYO?'checking':'local');
+  mostrarPendientes();
+  await reintentarPendientes();
   const ok=await sincronizarDesdeNube();
   if(APPS_SCRIPT_URL_GUAYOYO) mostrarEstadoSync(ok?'ok':'error');
   if(ok){
