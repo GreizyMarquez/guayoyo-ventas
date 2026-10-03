@@ -211,7 +211,7 @@ const FIREBASE_CONFIG = {
   appId: "1:195298633525:web:a20e4e22de15c916508e7c"
 };
 const FB_VER = '10.12.2';
-const APP_VERSION = '1.2';
+const APP_VERSION = '2.0';
 
 /* ---------- utilidades ---------- */
 const $=s=>document.querySelector(s);
@@ -310,7 +310,7 @@ const r3=n=>Math.round(n*1000)/1000;
 function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('No cargó '+src));document.head.appendChild(s)})}
 
 /* ---------- estado ---------- */
-const D={carta:[],inv:[],invMovs:[],pedidos:[],abiertas:[],gastos:[],turnos:[],tasas:{},config:null,listo:{}};
+const D={carta:[],inv:[],invMovs:[],pedidos:[],abiertas:[],gastos:[],turnos:[],tasas:{},config:null,saldos:{},facturas:[],empleados:[],nomMovs:[],nomPagos:[],ahorros:[],movCap:[],ajustes:[],listo:{}};
 let tab='vender', cat='Todos', cart={}, editPedido=null, adminSub='resumen', resumenRango='hoy';
 let turnoId=lsGet('guayoyo2_turno',null);
 const VENTANA=sumarDias(hoy(),-40);
@@ -333,7 +333,14 @@ async function arrancar(){
   Store.watch('gastos',['fecha','>=',VENTANA],d=>{D.gastos=d;render()});
   Store.watch('turnos',['fecha','>=',VENTANA],d=>{D.turnos=d;ok('turnos');render()});
   Store.watch('tasas',null,d=>{D.tasas=Object.fromEntries(d.map(x=>[x.id,x]));render()});
-  Store.watch('config',null,(d,meta)=>{D.srvConfig=!meta.fromCache;D.config=d.find(x=>x.id==='general')||{};ok('config');sembrar(meta);render()});
+  Store.watch('config',null,(d,meta)=>{D.srvConfig=!meta.fromCache;D.config=d.find(x=>x.id==='general')||{};D.saldos=d.find(x=>x.id==='saldos')||{};ok('config');sembrar(meta);render()});
+  Store.watch('facturas',null,d=>{D.facturas=d;render()});
+  Store.watch('empleados',null,d=>{D.empleados=d;render()});
+  Store.watch('nomina_movs',['fecha','>=',sumarDias(hoy(),-120)],d=>{D.nomMovs=d;render()});
+  Store.watch('nomina_pagos',null,d=>{D.nomPagos=d;render()});
+  Store.watch('ahorros',null,d=>{D.ahorros=d;render()});
+  Store.watch('mov_capital',null,d=>{D.movCap=d;render()});
+  Store.watch('ajustes',['fecha','>=',VENTANA],d=>{D.ajustes=d;render()});
   window.addEventListener('online',()=>{Store.online=true;updSync()});
   window.addEventListener('offline',()=>{Store.online=false;updSync()});
   updSync();render();
@@ -484,15 +491,17 @@ function guardarPedido(pagos,abierta,referencia){
   if(editPedido){
     const p=editPedido, delta=restar(consumoDe(items),consumoDe(p.items));
     const data={items,totalUSD:total,totalBs:p.tasa?r2(total*p.tasa):null,editadoTs:Date.now()};
-    if(pagos){data.pagos=pagos}
-    Store.write([{col:'pedidos',id:p.id,data,merge:true},...opsStock(delta)]);
+    const a={};
+    if(pagos){data.pagos=pagos;if(p.estado==='pagado'){incPagos(a,p.pagos,-1,fechaCobro(p));incPagos(a,pagos,+1,fechaCobro(p))}}
+    Store.write([{col:'pedidos',id:p.id,data,merge:true},...opsStock(delta),...opSaldos(a)]);
     toast('Pedido #'+p.num+' actualizado');
   }else{
     const tasa=tasaHoy(), id=uid(), ts=Date.now();
     const num=D.pedidos.filter(p=>p.fecha===hoy()&&!p.eliminado).length+1;
     const p={num,fecha:hoy(),ts,turnoId:t.id,encargado:t.encargado,items,totalUSD:total,tasa,totalBs:tasa?r2(total*tasa):null,
       estado:abierta?'abierto':'pagado',referencia:referencia||'',pagos:abierta?[]:pagos,cobroTurnoId:abierta?null:t.id,cobroTs:abierta?null:ts,eliminado:false};
-    Store.write([{col:'pedidos',id,data:p,merge:false},...opsStock(consumoDe(items))]);
+    const a={};if(!abierta)incPagos(a,pagos,+1,p.fecha);
+    Store.write([{col:'pedidos',id,data:p,merge:false},...opsStock(consumoDe(items)),...opSaldos(a)]);
     toast(abierta?`Cuenta "${referencia}" quedó abierta`:`Pedido #${num} guardado`);
   }
   cart={};editPedido=null;cerrarHoja();render();
@@ -556,9 +565,10 @@ function vInventario(){
 /* ---------- admin ---------- */
 function vAdmin(){
   if(!esAdmin())return vPin();
-  const subs={resumen:'Resumen',carta:'Carta',turnos:'Turnos',gastos:'Gastos',ajustes:'Ajustes'};
+  const subs={resumen:'Resumen',dinero:'Dinero',pagos:'Pagos y gastos',nomina:'Nómina',carta:'Carta',turnos:'Turnos',ajustes:'Ajustes'};
+  if(!subs[adminSub])adminSub='resumen';
   return `<div class="chips">${Object.entries(subs).map(([k,v])=>`<button class="chip ${adminSub===k?'on':''}" data-sub="${k}">${v}</button>`).join('')}</div>`+
-    ({resumen:aResumen,carta:aCarta,turnos:aTurnos,gastos:aGastos,ajustes:aAjustes})[adminSub]();
+    ({resumen:aResumen,dinero:aDinero,pagos:aPagos,nomina:aNomina,carta:aCarta,turnos:aTurnos,ajustes:aAjustes})[adminSub]();
 }
 function vPin(){
   const nuevo=!D.config.pinHash;
@@ -612,6 +622,7 @@ function aGastos(){
 function aAjustes(){
   const tasas=Object.values(D.tasas).sort((a,b)=>b.id.localeCompare(a.id)).slice(0,14);
   return `
+  ${Store.mode==='firebase'?`<div class="card stack"><h2>Traer facturas pendientes</h2><p class="small muted" style="margin:0">Copia de la app anterior solo las facturas que faltan por pagar. Los saldos y lo demás empiezan desde cero. Si lo repites, no se duplican.${D.config.importadoTs?` Última importación: ${fechaCorta(fechaDe(D.config.importadoTs))} ${hora(D.config.importadoTs)}.`:''}</p><div id="impBox"><button class="btn azul" data-a2="cargarViejo">Revisar facturas de la app anterior</button></div></div>`:''}
   <div class="card stack"><h2>Personas que abren turno</h2>
     <form id="fEnc" class="stack"><div class="field"><label for="encs">Un nombre por línea</label><textarea id="encs" rows="4">${esc((D.config.encargados||[]).join('\n'))}</textarea></div><button class="btn azul" type="submit">Guardar nombres</button></form></div>
   <div class="card stack"><div class="row"><h2>Tasas BCV</h2><button class="btn sm" data-act="tasa" data-otro="1">Corregir otro día</button></div>
@@ -666,7 +677,8 @@ function hojaGasto(id){
     const ta=(tasaDe(fecha)||{}).usd||0, m=+v.monto;
     const data={descripcion:v.descripcion.trim(),fecha,moneda:mon,metodo:met,montoUSD:mon==='USD'?r2(m):(ta?r2(m/ta):null),montoBs:mon==='BS'?r2(m):(ta?r2(m*ta):null),tasa:ta};
     if(!id)Object.assign(data,{ts:Date.now(),turnoId:t?t.id:null,encargado:t?t.encargado:'Administración',eliminado:false});
-    Store.write([{col:'gastos',id:id||uid(),data}]);cerrarHoja();toast('Gasto guardado');
+    const a={};if(id)incMov(a,g.metodo,g.montoBs,g.montoUSD,+1,g.fecha,false);incMov(a,met,data.montoBs,data.montoUSD,-1,fecha,false);
+    Store.write([{col:'gastos',id:id||uid(),data},...opSaldos(a)]);cerrarHoja();toast('Gasto guardado');
   });
   document.querySelectorAll('[data-gmon]').forEach(b=>b.onclick=()=>{mon=b.dataset.gmon;keep(draw)});
   document.querySelectorAll('[data-gmet]').forEach(b=>b.onclick=()=>{met=b.dataset.gmet;keep(draw)});};
@@ -712,7 +724,7 @@ function hojaCerrarTurno(){
       const difBs=r2(+v.bs-R.espBs), difUsd=r2(+v.usd-R.espUsd);
       const cierre={ts:Date.now(),numPedidos:R.ventas.length,totalUSD:R.totalUSD,ventas:R.met,ventasUSD:R.metUsd,gastos:R.gMet,gastosUSD:R.gastosUSD,
         espBs:R.espBs,espUsd:R.espUsd,contBs:r2(+v.bs),contUsd:r2(+v.usd),difBs,difUsd,nota:v.nota.trim()};
-      Store.write([{col:'turnos',id:t.id,data:{estado:'cerrado',cierre}}]);
+      Store.write([{col:'turnos',id:t.id,data:{estado:'cerrado',cierre}},...opSaldos({efectivoBs:difBs,efectivoUSD:difUsd})]);
       turnoId=null;lsSet('guayoyo2_turno',null);cerrarHoja();tab='vender';render();
       toast(Math.abs(difBs)<0.01&&Math.abs(difUsd)<0.01?'Turno cerrado. Todo cuadró.':'Turno cerrado con diferencia');
     });
@@ -809,6 +821,356 @@ function hojaSubirPrecios(){
 }
 
 /* =========================================================
+   ETAPA 2: saldos, pagos, nómina, dinero e importación
+   ========================================================= */
+const APPS_SCRIPT_VIEJO='https://script.google.com/macros/s/AKfycbwdxi88h5nwRn6MMWdbIe9pVZe2mfTmP33Tlgsw8-bl7QZJ7j5Qeb2mZ7w94oKhAppexA/exec';
+let semOff=0, empAbierto=null;
+
+/* ---- saldos (contadores que suman y restan) ---- */
+function addI(a,k,v){v=+v||0;if(!v)return;a[k]=r2((a[k]||0)+v)}
+function incMov(a,metodo,bsv,usdv,s,fecha,venta){
+  if(metodo==='EDIV')addI(a,'efectivoUSD',s*(+usdv||0));
+  else if(metodo==='EBS')addI(a,'efectivoBs',s*(+bsv||0));
+  else if(metodo==='PM')addI(a,'bancoBs',s*(+bsv||0));
+  else if(metodo==='POS'){if(venta)addI(a,'pos_'+String(fecha).replace(/-/g,''),s*(+bsv||0));else addI(a,'bancoBs',s*(+bsv||0))}
+}
+function incPagos(a,pagos,s,fecha){for(const p of pagos||[])incMov(a,p.metodo,p.montoBs,p.montoUSD,s,fecha,true)}
+function opSaldos(a){const i={};for(const [k,v] of Object.entries(a))if(Math.abs(v)>0.0001)i[k]=v;return Object.keys(i).length?[{col:'config',id:'saldos',inc:i}]:[]}
+function saldos(){
+  const s=D.saldos||{},h=hoy().replace(/-/g,'');let posLiq=0,posPend=0;
+  for(const [k,v] of Object.entries(s))if(k.startsWith('pos_')){if(k.slice(4)<h)posLiq+=+v||0;else posPend+=+v||0}
+  return{efectivoBs:r2(+s.efectivoBs||0),efectivoUSD:r2(+s.efectivoUSD||0),bancoBs:r2((+s.bancoBs||0)+posLiq),posPend:r2(posPend),usdt:r2(+s.usdt||0)};
+}
+const fechaCobro=p=>p.cobroTs?fechaDe(p.cobroTs):p.fecha;
+const DEST={bancoBs:'Banco Bs',efectivoBs:'Efectivo Bs'};
+function tasaCampo(f,c){const cands=[D.tasas[f],D.tasas[hoy()],...Object.keys(D.tasas).sort().reverse().map(k=>D.tasas[k])];const t=cands.find(x=>x&&x[c]);return t?+t[c]:0}
+
+/* ---- nómina ---- */
+function semanaDe(off){const d=new Date();d.setDate(d.getDate()+off*7);const dow=d.getDay();const l=new Date(d);l.setDate(d.getDate()+(dow===0?-6:1-dow));const h=new Date(l);h.setDate(l.getDate()+6);return{desde:fechaDe(l),hasta:fechaDe(h)}}
+function semTxt(s){const o={day:'numeric',month:'short'};const f=x=>{const [y,m,d]=x.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('es-VE',o)};return f(s.desde)+' – '+f(s.hasta)}
+function netoSemana(emp,sem){
+  const ms=D.nomMovs.filter(m=>!m.eliminado&&m.empleadoId===emp.id&&m.fecha>=sem.desde&&m.fecha<=sem.hasta);
+  const sum=(t,c)=>ms.filter(m=>m.tipo===t).reduce((a,m)=>a+(+m[c]||0),0);
+  const tasaEUR=tasaCampo(sem.hasta,'eur'), tasaUSD=tasaCampo(sem.hasta,'usd');
+  const salarioUSD=+emp.salarioSemanalUSD||0, salarioBs=tasaEUR?salarioUSD*tasaEUR:0;
+  const adelantosBs=sum('adelanto','montoBs'), consumosUSD=sum('consumo','montoUSD'), consumosBs=tasaUSD?consumosUSD*tasaUSD:0;
+  const horasExtraBs=sum('extra','montoBs'), totalHorasExtra=sum('extra','horas'), descuentosBs=sum('descuento','montoBs'), totalDescuentos=ms.filter(m=>m.tipo==='descuento').length;
+  return{ms,tasaEUR,tasaUSD,salarioUSD,salarioBs:r2(salarioBs),adelantosBs:r2(adelantosBs),consumosUSD:r2(consumosUSD),consumosBs:r2(consumosBs),horasExtraBs:r2(horasExtraBs),totalHorasExtra,descuentosBs:r2(descuentosBs),totalDescuentos,
+    netoBs:r2(salarioBs+horasExtraBs-adelantosBs-consumosBs-descuentosBs)};
+}
+
+/* ---- vistas de administración nuevas ---- */
+function aDinero(){
+  const s=saldos();
+  const aportesPend=D.movCap.filter(m=>!m.eliminado&&m.tipo==='aporte'&&m.estado==='pendiente');
+  const hist=[...D.movCap.filter(m=>!m.eliminado).map(m=>({...m,_k:'mc'})),...D.ahorros.filter(a=>!a.eliminado).map(a=>({...a,_k:'ah'})),...D.ajustes.filter(a=>!a.eliminado).map(a=>({...a,_k:'aj'}))].sort((a,b)=>(b.ts||0)-(a.ts||0)).slice(0,30);
+  const desc=x=>x._k==='aj'?['Cuadre con lo real',x.nota||'']:x._k==='mc'?(x.tipo==='aporte'?['Aporte de '+(x.socio||'socio'),bs(x.montoBs)+' → '+DEST[x.destino]+(x.estado==='pagado'?' · devuelto '+nf2.format(x.pagoUSDT||0)+' USDT':' · por devolver')]:['Venta de $',usd(x.montoUSD)+' a '+nf2.format(x.tasa)+' → '+DEST[x.destino]]):(x.tipo==='venta'?['Venta de USDT',nf2.format(x.usdt)+' USDT'+(x.montoBs?' → '+bs(x.montoBs):'')]:['Compra de USDT',bs(x.montoBs)+' → '+nf2.format(x.usdt)+' USDT']);
+  return `
+  <div class="kpis">
+    <div class="kpi"><div class="label">Efectivo Bs</div><div class="v num ${s.efectivoBs<0?'bad':''}">${bs(s.efectivoBs)}</div></div>
+    <div class="kpi"><div class="label">Efectivo $</div><div class="v num ${s.efectivoUSD<0?'bad':''}">${usd(s.efectivoUSD)}</div></div>
+    <div class="kpi"><div class="label">Banco Bs</div><div class="v num ${s.bancoBs<0?'bad':''}">${bs(s.bancoBs)}</div>${s.posPend?`<div class="xs muted">+ ${bs(s.posPend)} de punto de venta por llegar</div>`:''}</div>
+    <div class="kpi"><div class="label">Ahorro USDT</div><div class="v num">${nf2.format(s.usdt)}</div></div>
+  </div>
+  <button class="btn azul block" data-a2="cuadrar">Cuadrar con lo que hay de verdad</button>
+  <div class="btns"><button class="btn grow" data-a2="aporte">+ Aporte de socio</button><button class="btn grow" data-a2="cambio">+ Venta de $</button></div>
+  <div class="btns"><button class="btn grow" data-a2="ahorro" data-t="compra">Comprar USDT</button><button class="btn grow" data-a2="ahorro" data-t="venta">Vender USDT</button></div>
+  ${aportesPend.length?`<div class="card"><h2>Aportes por devolver en USDT</h2><div class="list" style="margin-top:6px">${aportesPend.map(m=>`<div class="li"><div class="grow"><div class="t">${esc(m.socio)}</div><div class="s">${fechaCorta(m.fecha)} · ${bs(m.montoBs)} ≈ ${usd(m.montoUSD)}</div></div><button class="btn sm pri" data-a2="devolver" data-id="${m.id}">Devolver</button></div>`).join('')}</div></div>`:''}
+  <div class="card"><h2>Movimientos de dinero</h2>${hist.length?`<div class="list" style="margin-top:6px">${hist.map(x=>{const [t,sub]=desc(x);return `<div class="li"><div class="grow"><div class="t">${t}</div><div class="s">${fechaCorta(x.fecha)} · ${esc(sub)}</div></div><button class="btn sm danger" data-a2="delDinero" data-k="${x._k}" data-id="${x.id}">Borrar</button></div>`}).join('')}</div>`:'<div class="empty small">Aquí aparecerán los aportes, ventas de $, USDT y cuadres.</div>'}</div>
+  <p class="hint" style="text-align:center;margin:0">Los saldos se mueven solos con cada venta, gasto, factura y pago de nómina. El punto de venta llega al banco al día siguiente.</p>`;
+}
+function aPagos(){
+  const pend=D.facturas.filter(f=>!f.eliminado&&f.estado==='pendiente').sort((a,b)=>(a.fechaPago||'').localeCompare(b.fechaPago||''));
+  const pag=D.facturas.filter(f=>!f.eliminado&&f.estado==='pagada').sort((a,b)=>(b.fechaPagada||'').localeCompare(a.fechaPagada||'')).slice(0,15);
+  const totPend=r2(pend.reduce((a,f)=>a+(+f.montoUSD||0),0)), h=hoy();
+  return `
+  <div class="card"><div class="row"><h2>Facturas por pagar</h2><button class="btn sm azul" data-a2="factura">+ Factura</button></div>
+    ${pend.length?`<div class="xs muted" style="margin-top:4px">Total pendiente ${usd(totPend)}</div><div class="list" style="margin-top:6px">${pend.map(f=>{const d=f.fechaPago<h?'bad':f.fechaPago===h?'warn':'';return `<div class="li"><button class="grow" style="background:none;border:0;text-align:left;padding:0" data-a2="factura" data-id="${f.id}"><div class="t">${esc(f.descripcion)}</div><div class="s">${d==='bad'?'<span class="tag bad">Vencida</span> ':d==='warn'?'<span class="tag warn">Hoy</span> ':''}Pagar el ${fechaCorta(f.fechaPago)}</div></button><div class="amt num">${usd(f.montoUSD)}</div><button class="btn sm pri" data-a2="pagarFactura" data-id="${f.id}">Pagar</button></div>`}).join('')}</div>`:'<div class="empty small">No hay facturas pendientes.</div>'}</div>
+  ${pag.length?`<div class="card"><h2>Pagadas recientemente</h2><div class="list" style="margin-top:6px">${pag.map(f=>`<div class="li"><div class="grow"><div class="t">${esc(f.descripcion)}</div><div class="s">${fechaCorta(f.fechaPagada)} · ${METODOS[f.metodoPago]?.n||''}</div></div><div class="amt num">${usd(f.montoUSD)}${f.montoBs?`<small>${bs(f.montoBs)}</small>`:''}</div><button class="btn sm danger" data-a2="delFactura" data-id="${f.id}">Borrar</button></div>`).join('')}</div></div>`:''}
+  ${aGastos()}`;
+}
+function aNomina(){
+  const sem=semanaDe(semOff), emps=D.empleados.filter(e=>!e.eliminado).sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  return `
+  <div class="card row"><button class="btn sm" data-a2="sem" data-d="-1" aria-label="Semana anterior">◀</button><div style="text-align:center"><b>${semTxt(sem)}</b><div class="xs muted">${semOff===0?'semana actual':`<button class="btn ghost sm" data-a2="sem" data-d="0">volver a esta semana</button>`}</div></div><button class="btn sm" data-a2="sem" data-d="1" ${semOff>=0?'disabled':''} aria-label="Semana siguiente">▶</button></div>
+  ${emps.map(e=>{const r=netoSemana(e,sem),pagos=D.nomPagos.filter(p=>!p.eliminado&&p.empleadoId===e.id&&p.semanaDesde===sem.desde),ab=empAbierto===e.id;
+    return `<div class="card">
+      <button class="row" style="width:100%;background:none;border:0;padding:0;text-align:left" data-a2="toggleEmp" data-id="${e.id}"><div class="grow"><h2>${esc(e.nombre)}</h2><div class="xs muted">${esc(e.turno||'')}${e.diaLibre?' · libre '+esc(e.diaLibre):''} · ${usd(e.salarioSemanalUSD)}/semana</div></div><div class="amt num">${r.tasaEUR?bs(r.netoBs):'—'}<small>${pagos.length?'<span class="ok">pagada</span>':'neto'}</small></div></button>
+      ${ab?`<div class="stack" style="margin-top:12px">
+        <div class="small">
+          <div class="row"><span>Salario (tasa € ${r.tasaEUR?nf2.format(r.tasaEUR):'—'})</span><span class="num">${r.tasaEUR?bs(r.salarioBs):'falta tasa €'}</span></div>
+          <div class="row"><span>+ Horas extra${r.totalHorasExtra?` (${fmtQ(r.totalHorasExtra)} h)`:''}</span><span class="num">${bs(r.horasExtraBs)}</span></div>
+          <div class="row"><span>− Descuentos${r.totalDescuentos?` (${r.totalDescuentos})`:''}</span><span class="num">${bs(r.descuentosBs)}</span></div>
+          <div class="row"><span>− Adelantos</span><span class="num">${bs(r.adelantosBs)}</span></div>
+          <div class="row"><span>− Consumos (${usd(r.consumosUSD)})</span><span class="num">${bs(r.consumosBs)}</span></div>
+          <div class="row" style="border-top:1px solid var(--line);margin-top:6px;padding-top:6px"><b>Neto a pagar</b><b class="num">${r.tasaEUR?bs(r.netoBs):'—'}</b></div>
+        </div>
+        <div class="btns"><button class="btn sm" data-a2="nmov" data-t="adelanto" data-id="${e.id}">+ Adelanto</button><button class="btn sm" data-a2="nmov" data-t="consumo" data-id="${e.id}">+ Consumo</button><button class="btn sm" data-a2="nmov" data-t="extra" data-id="${e.id}">+ Horas extra</button><button class="btn sm" data-a2="nmov" data-t="descuento" data-id="${e.id}">− Descuento</button></div>
+        ${pagos.length?pagos.map(p=>`<div class="notice azul row"><span>Pagado ${fechaCorta(p.fecha)}: ${bs(p.netoBs)}</span><span class="btns"><button class="btn sm" data-a2="recibo" data-id="${p.id}">Recibo</button><button class="btn sm danger" data-a2="delPagoNom" data-id="${p.id}">Borrar</button></span></div>`).join(''):`<button class="btn pri block" data-a2="pagarNom" data-id="${e.id}">Pagar semana</button>`}
+        ${r.ms.length?`<div class="list">${r.ms.sort((a,b)=>b.fecha.localeCompare(a.fecha)).map(m=>`<div class="li"><div class="grow"><div class="t">${{adelanto:'Adelanto',consumo:'Consumo',extra:`Horas extra (${fmtQ(m.horas||0)} h)`,descuento:m.subtipo==='dia'?'Descuento (día completo)':`Descuento (${fmtQ(m.horas||0)} h)`}[m.tipo]}</div><div class="s">${fechaCorta(m.fecha)}${m.descripcion?' · '+esc(m.descripcion):''}${m.metodo?' · '+METODOS[m.metodo].n:''}</div></div><div class="amt num">${m.tipo==='consumo'?usd(m.montoUSD):bs(m.montoBs)}</div><button class="btn sm danger" data-a2="delNomMov" data-id="${m.id}" aria-label="Borrar">✕</button></div>`).join('')}</div>`:'<div class="hint">Sin movimientos esta semana.</div>'}
+        <button class="btn ghost sm" data-a2="empleado" data-id="${e.id}" style="align-self:flex-start">Editar datos de ${esc(e.nombre)}</button>
+      </div>`:''}
+    </div>`}).join('')||'<div class="card empty"><b>No hay empleados</b>Agrega a las personas que cobran nómina.</div>'}
+  <button class="btn block" data-a2="empleado">+ Agregar empleado</button>
+  ${D.tasas[sem.hasta]?.eur||D.tasas[hoy()]?.eur?'':'<div class="notice warn">Falta la tasa del euro. Ponla tocando la tasa BCV arriba.</div>'}`;
+}
+
+/* ---- hojas nuevas ---- */
+function selDest(nombre,val){return `<div class="field"><label>Entra a</label><div class="seg">${Object.entries(DEST).map(([k,v])=>`<button type="button" data-dest="${nombre}:${k}" class="${val===k?'on':''}">${v}</button>`).join('')}</div></div>`}
+function selMet(val,lista){return `<div class="pays">${(lista||ORDEN_MET).map(m=>`<button type="button" class="pay ${val===m?'on':''}" data-met="${m}">${METODOS[m].n}</button>`).join('')}</div>`}
+/* hojas con botones de opción: guardan su elección en _sel */
+let _sel={};
+document.addEventListener('click',e=>{
+  const d=e.target.closest('[data-dest],[data-met],[data-opt]');if(!d||!$('#sheet').contains(d))return;
+  if(d.dataset.dest){const [n,v]=d.dataset.dest.split(':');_sel[n]=v;d.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===d))}
+  if(d.dataset.met){_sel.met=d.dataset.met;d.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===d));if(_sel.onMet)_sel.onMet()}
+  if(d.dataset.opt){const [n,v]=d.dataset.opt.split(':');_sel[n]=v;d.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===d));if(_sel.onOpt)_sel.onOpt()}
+});
+
+function hojaCuadrar(){
+  const s=saldos();_sel={};
+  hoja(`<div class="row"><h2>Cuadrar con lo real</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack"><p class="small muted" style="margin:0">Escribe lo que hay de verdad. Deja vacío lo que no contaste. La app ajusta sus saldos para que coincidan.</p>
+    <div class="field"><label for="qBs">Efectivo Bs (la app dice ${bs(s.efectivoBs)})</label><input id="qBs" name="bs" type="number" inputmode="decimal" step="0.01"></div>
+    <div class="field"><label for="qUsd">Efectivo $ (la app dice ${usd(s.efectivoUSD)})</label><input id="qUsd" name="usd" type="number" inputmode="decimal" step="0.01"></div>
+    <div class="field"><label for="qBan">Banco Bs (la app dice ${bs(s.bancoBs)})</label><input id="qBan" name="ban" type="number" inputmode="decimal" step="0.01"></div>
+    <div class="field"><label for="qNota">Nota (opcional)</label><input id="qNota" name="nota" maxlength="100"></div>
+    <button class="btn azul block" type="submit">Guardar cuadre</button></form>`,v=>{
+      const a={},dif={};
+      if(v.bs!==''){dif.efectivoBs=r2(+v.bs-s.efectivoBs);addI(a,'efectivoBs',dif.efectivoBs)}
+      if(v.usd!==''){dif.efectivoUSD=r2(+v.usd-s.efectivoUSD);addI(a,'efectivoUSD',dif.efectivoUSD)}
+      if(v.ban!==''){dif.bancoBs=r2(+v.ban-s.bancoBs);addI(a,'bancoBs',dif.bancoBs)}
+      if(!Object.keys(dif).length){toast('Escribe al menos un monto');return}
+      Store.write([{col:'ajustes',id:uid(),data:{fecha:hoy(),ts:Date.now(),dif,nota:v.nota.trim(),eliminado:false}},...opSaldos(a)]);cerrarHoja();
+      toast(Object.values(dif).every(x=>Math.abs(x)<0.01)?'Todo cuadra':'Saldos ajustados');
+    });
+}
+function hojaAporte(){
+  _sel={dest:'bancoBs'};const t=tasaHoy();
+  hoja(`<div class="row"><h2>Aporte de socio</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack"><div class="field"><label for="apS">Socio</label><input id="apS" name="socio" required maxlength="40"></div>
+    <div class="g2"><div class="field"><label for="apB">Monto en Bs</label><input id="apB" name="bs" type="number" inputmode="decimal" step="0.01" min="0.01" required></div>
+    <div class="field"><label for="apT">Tasa $</label><input id="apT" name="tasa" type="number" inputmode="decimal" step="0.0001" min="0.0001" required value="${t||''}"></div></div>
+    ${selDest('dest','bancoBs')}
+    <div class="field"><label for="apN">Nota (opcional)</label><input id="apN" name="nota" maxlength="80"></div>
+    <p class="hint" style="margin:0">Se le devuelve al socio en USDT. Quedará en la lista de aportes por devolver.</p>
+    <button class="btn pri block" type="submit">Guardar aporte</button></form>`,v=>{
+      const b=r2(+v.bs),ta=+v.tasa,a={};addI(a,_sel.dest,b);
+      Store.write([{col:'mov_capital',id:uid(),data:{tipo:'aporte',fecha:hoy(),ts:Date.now(),socio:v.socio.trim(),montoBs:b,tasa:ta,montoUSD:r2(b/ta),destino:_sel.dest,estado:'pendiente',nota:v.nota.trim(),eliminado:false}},...opSaldos(a)]);cerrarHoja();toast('Aporte registrado');
+    });
+}
+function hojaCambio(){
+  _sel={dest:'bancoBs'};const t=tasaHoy(),s=saldos();
+  hoja(`<div class="row"><h2>Venta de $ en efectivo</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack"><div class="g2"><div class="field"><label for="cbU">Dólares vendidos</label><input id="cbU" name="usd" type="number" inputmode="decimal" step="0.01" min="0.01" required></div>
+    <div class="field"><label for="cbT">Tasa</label><input id="cbT" name="tasa" type="number" inputmode="decimal" step="0.0001" min="0.0001" required value="${t||''}"></div></div>
+    ${selDest('dest','bancoBs')}<p class="hint" style="margin:0">Hay ${usd(s.efectivoUSD)} en efectivo según la app.</p>
+    <div class="field"><label for="cbN">Nota (opcional)</label><input id="cbN" name="nota" maxlength="80"></div>
+    <button class="btn pri block" type="submit">Guardar venta de $</button></form>`,v=>{
+      const u=r2(+v.usd),ta=+v.tasa,b=r2(u*ta),a={};addI(a,_sel.dest,b);addI(a,'efectivoUSD',-u);
+      Store.write([{col:'mov_capital',id:uid(),data:{tipo:'cambio',fecha:hoy(),ts:Date.now(),montoUSD:u,tasa:ta,montoBs:b,destino:_sel.dest,nota:v.nota.trim(),eliminado:false}},...opSaldos(a)]);cerrarHoja();toast(`Vendidos ${usd(u)} → ${bs(b)}`);
+    });
+}
+function hojaDevolver(id){
+  const m=D.movCap.find(x=>x.id===id);if(!m)return;_sel={orig:'ahorros'};
+  hoja(`<div class="row"><h2>Devolver aporte a ${esc(m.socio)}</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack"><div class="small muted">Aportó ${bs(m.montoBs)} el ${fechaCorta(m.fecha)}, equivalente a ${usd(m.montoUSD)}.</div>
+    <div class="field"><label for="dvU">USDT entregados</label><input id="dvU" name="usdt" type="number" inputmode="decimal" step="0.01" min="0.01" required value="${(+m.montoUSD||0).toFixed(2)}"></div>
+    <div class="field"><label>Salieron de</label><div class="seg"><button type="button" data-opt="orig:ahorros" class="on">Ahorros del negocio</button><button type="button" data-opt="orig:externo">USDT de afuera</button></div></div>
+    <button class="btn pri block" type="submit">Marcar como devuelto</button></form>`,v=>{
+      const u=r2(+v.usdt),ops=[{col:'mov_capital',id,data:{estado:'pagado',pagoFecha:hoy(),pagoUSDT:u,pagoOrigen:_sel.orig}}];
+      if(_sel.orig==='ahorros'){const aid=uid();ops.push({col:'ahorros',id:aid,data:{tipo:'venta',fecha:hoy(),ts:Date.now(),usdt:u,tasa:0,montoBs:0,destino:'bancoBs',nota:'Devolución a '+m.socio,aporteId:id,eliminado:false}},...opSaldos({usdt:-u}));ops[0].data.ahorroId=aid}
+      Store.write(ops);cerrarHoja();toast('Aporte devuelto');
+    });
+}
+function hojaAhorro(tipo){
+  _sel={dest:'bancoBs'};const t=tasaHoy();
+  hoja(`<div class="row"><h2>${tipo==='compra'?'Comprar USDT':'Vender USDT'}</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack">${tipo==='compra'?`<div class="g2"><div class="field"><label for="ahB">Bs enviados</label><input id="ahB" name="bs" type="number" inputmode="decimal" step="0.01" min="0.01" required></div>
+    <div class="field"><label for="ahT">Tasa USDT</label><input id="ahT" name="tasa" type="number" inputmode="decimal" step="0.0001" min="0.0001" required value="${t||''}"></div></div><p class="hint" style="margin:0">Los Bs salen del banco del negocio.</p>`
+    :`<div class="g2"><div class="field"><label for="ahU">USDT vendidos</label><input id="ahU" name="usdt" type="number" inputmode="decimal" step="0.01" min="0.01" required></div>
+    <div class="field"><label for="ahT">Tasa USDT</label><input id="ahT" name="tasa" type="number" inputmode="decimal" step="0.0001" min="0.0001" required value="${t||''}"></div></div>${selDest('dest','bancoBs')}`}
+    <div id="ahPrev" class="small"></div>
+    <div class="field"><label for="ahN">Nota (opcional)</label><input id="ahN" name="nota" maxlength="80"></div>
+    <button class="btn pri block" type="submit">Guardar</button></form>`,v=>{
+      const ta=+v.tasa,a={};let data;
+      if(tipo==='compra'){const b=r2(+v.bs),u=r2(b/ta);addI(a,'bancoBs',-b);addI(a,'usdt',u);data={tipo,montoBs:b,tasa:ta,usdt:u}}
+      else{const u=r2(+v.usdt),b=r2(u*ta);addI(a,_sel.dest,b);addI(a,'usdt',-u);data={tipo,usdt:u,tasa:ta,montoBs:b,destino:_sel.dest}}
+      Store.write([{col:'ahorros',id:uid(),data:{...data,fecha:hoy(),ts:Date.now(),nota:v.nota.trim(),eliminado:false}},...opSaldos(a)]);cerrarHoja();toast('Guardado');
+    });
+  const upd=()=>{const ta=+$('#ahT').value;const el=$('#ahPrev');if(!ta){el.textContent='';return}
+    el.innerHTML=tipo==='compra'?(+($('#ahB').value)?`Recibes <b>${nf2.format(+$('#ahB').value/ta)} USDT</b>`:''):(+($('#ahU').value)?`Entran <b>${bs(+$('#ahU').value*ta)}</b>`:'')};
+  document.querySelectorAll('#sheet input').forEach(i=>i.addEventListener('input',upd));
+}
+function delDinero(k,id){
+  const a={};let col;
+  if(k==='aj'){const x=D.ajustes.find(z=>z.id===id);col='ajustes';for(const [kk,v] of Object.entries(x.dif||{}))addI(a,kk,-v)}
+  if(k==='mc'){const x=D.movCap.find(z=>z.id===id);col='mov_capital';addI(a,x.destino,-x.montoBs);if(x.tipo==='cambio')addI(a,'efectivoUSD',+x.montoUSD)}
+  if(k==='ah'){const x=D.ahorros.find(z=>z.id===id);col='ahorros';if(x.tipo==='compra'){addI(a,'bancoBs',+x.montoBs);addI(a,'usdt',-x.usdt)}else{if(x.montoBs)addI(a,x.destino,-x.montoBs);addI(a,'usdt',+x.usdt)}
+    if(x.aporteId)Store.write([{col:'mov_capital',id:x.aporteId,data:{estado:'pendiente',pagoUSDT:0,pagoOrigen:null}}])}
+  Store.write([{col,id,data:{eliminado:true}},...opSaldos(a)]);toast('Borrado');
+}
+
+function hojaFactura(id){
+  const f=id?D.facturas.find(x=>x.id===id):{};
+  hoja(`<div class="row"><h2>${id?'Factura':'Nueva factura'}</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack"><div class="field"><label for="fD">Descripción</label><input id="fD" name="desc" required maxlength="80" value="${esc(f.descripcion||'')}" placeholder="Ej. Proveedor de harina"></div>
+    <div class="g2"><div class="field"><label for="fM">Monto ($)</label><input id="fM" name="monto" type="number" inputmode="decimal" step="0.01" min="0.01" required value="${f.montoUSD??''}"></div>
+    <div class="field"><label for="fF">Fecha de pago</label><input id="fF" name="fecha" type="date" required value="${f.fechaPago||''}"></div></div>
+    <div class="btns"><button class="btn pri grow" type="submit">Guardar</button>${id?`<button class="btn danger" type="button" data-a2="delFactura" data-id="${id}">Borrar</button>`:''}</div></form>`,v=>{
+      Store.write([{col:'facturas',id:id||uid(),data:{descripcion:v.desc.trim(),montoUSD:r2(+v.monto),fechaPago:v.fecha,...(id?{}:{estado:'pendiente',ts:Date.now(),eliminado:false})}}]);cerrarHoja();toast('Factura guardada');
+    });
+}
+function hojaPagarFactura(id){
+  const f=D.facturas.find(x=>x.id===id);_sel={met:'PM'};
+  hoja(`<div class="row"><h2>Pagar ${esc(f.descripcion)}</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack"><div class="row card" style="background:var(--sunk);border:0"><b>Total</b><b class="num">${usd(f.montoUSD)}</b></div>
+    <div class="field"><label>Pagado con</label>${selMet('PM')}</div>
+    <div class="g2"><div class="field"><label for="pfT">Tasa $</label><input id="pfT" name="tasa" type="number" inputmode="decimal" step="0.0001" min="0" value="${tasaHoy()||''}"></div>
+    <div class="field"><label for="pfF">Fecha</label><input id="pfF" name="fecha" type="date" value="${hoy()}" max="${hoy()}" required></div></div>
+    <div id="pfPrev" class="small"></div>
+    <button class="btn pri block" type="submit">Marcar como pagada</button></form>`,v=>{
+      const ta=+v.tasa;if(_sel.met!=='EDIV'&&!ta){toast('Falta la tasa para calcular los Bs');return}
+      const montoBs=ta?r2(f.montoUSD*ta):null,a={};incMov(a,_sel.met,montoBs,f.montoUSD,-1,v.fecha,false);
+      Store.write([{col:'facturas',id,data:{estado:'pagada',fechaPagada:v.fecha,metodoPago:_sel.met,tasaUsada:ta,montoBs}},...opSaldos(a)]);cerrarHoja();toast('Factura pagada');
+    });
+  const upd=()=>{const ta=+$('#pfT').value;$('#pfPrev').innerHTML=_sel.met==='EDIV'?`Salen <b>${usd(f.montoUSD)}</b> del efectivo`:ta?`Salen <b>${bs(f.montoUSD*ta)}</b>`:''};
+  _sel.onMet=upd;$('#pfT').oninput=upd;upd();
+}
+function delFactura(id){
+  const f=D.facturas.find(x=>x.id===id),a={};
+  if(f.estado==='pagada')incMov(a,f.metodoPago,f.montoBs,f.montoUSD,+1,f.fechaPagada,false);
+  Store.write([{col:'facturas',id,data:{eliminado:true}},...opSaldos(a)]);cerrarHoja();toast('Factura borrada');
+}
+
+function hojaEmpleado(id){
+  const e=id?D.empleados.find(x=>x.id===id):{};
+  hoja(`<div class="row"><h2>${id?'Editar empleado':'Nuevo empleado'}</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack"><div class="field"><label for="eN">Nombre</label><input id="eN" name="nombre" required maxlength="40" value="${esc(e.nombre||'')}"></div>
+    <div class="field"><label for="eT">Turno</label><input id="eT" name="turno" maxlength="40" value="${esc(e.turno||'')}" placeholder="Ej. Mañana 6:00 - 14:00"></div>
+    <div class="g2"><div class="field"><label for="eL">Día libre</label><input id="eL" name="libre" maxlength="20" value="${esc(e.diaLibre||'')}"></div>
+    <div class="field"><label for="eS">Salario semanal ($)</label><input id="eS" name="sal" type="number" inputmode="decimal" step="0.01" min="0" required value="${e.salarioSemanalUSD??''}"></div></div>
+    <p class="hint" style="margin:0">Se paga en Bs a la tasa BCV del euro.</p>
+    <div class="btns"><button class="btn pri grow" type="submit">Guardar</button>${id?`<button class="btn danger" type="button" data-a2="delEmp" data-id="${id}">Borrar</button>`:''}</div></form>`,v=>{
+      Store.write([{col:'empleados',id:id||slug(v.nombre)+'-'+uid().slice(-4),data:{nombre:v.nombre.trim(),turno:v.turno.trim(),diaLibre:v.libre.trim(),salarioSemanalUSD:r2(+v.sal),eliminado:false}}]);cerrarHoja();toast('Guardado');
+    });
+}
+function hojaNomMov(tipo,empId){
+  const e=D.empleados.find(x=>x.id===empId),sem=semanaDe(semOff),fDef=semOff===0?hoy():sem.hasta;_sel={met:'EBS',sub:'horas',cart:{}};
+  const titulos={adelanto:'Adelanto',consumo:'Consumo',extra:'Horas extra',descuento:'Descuento'};
+  const prods=D.carta.filter(p=>p.activo!==false);
+  let cuerpo='';
+  if(tipo==='adelanto')cuerpo=`<div class="field"><label>Sale de</label>${selMet('EBS')}</div><div class="field"><label for="nmM" id="nmML">Monto en Bs</label><input id="nmM" name="monto" type="number" inputmode="decimal" step="0.01" min="0.01" required></div>`;
+  if(tipo==='consumo')cuerpo=`<div class="field"><label for="nmBus">Productos que consumió</label><input id="nmBus" placeholder="Buscar en la carta" autocomplete="off"></div><div id="nmList" class="list" style="max-height:220px;overflow:auto"></div>
+    <div class="row card" style="background:var(--sunk);border:0"><span>Total consumo</span><b class="num" id="nmTot">$0,00</b></div>
+    <div class="field"><label for="nmX">Otro monto en $ (opcional)</label><input id="nmX" name="extra" type="number" inputmode="decimal" step="0.01" min="0"></div>`;
+  if(tipo==='extra')cuerpo=`<div class="g2"><div class="field"><label for="nmH">Horas</label><input id="nmH" name="horas" type="number" inputmode="decimal" step="0.5" min="0.5" required></div><div class="field"><label for="nmM">Pago en $</label><input id="nmM" name="monto" type="number" inputmode="decimal" step="0.01" min="0.01" required></div></div><p class="hint" style="margin:0">Se convierte a Bs con la tasa del euro de ese día.</p>`;
+  if(tipo==='descuento')cuerpo=`<div class="field"><label>Qué se descuenta</label><div class="seg"><button type="button" data-opt="sub:horas" class="on">Unas horas</button><button type="button" data-opt="sub:dia">Día completo</button></div></div>
+    <div class="g2"><div class="field" id="nmHW"><label for="nmH">Horas no laboradas</label><input id="nmH" name="horas" type="number" inputmode="decimal" step="0.5" min="0.5"></div><div class="field"><label for="nmM">Monto a descontar ($)</label><input id="nmM" name="monto" type="number" inputmode="decimal" step="0.01" min="0.01" required></div></div><p class="hint" style="margin:0" id="nmSug"></p>`;
+  hoja(`<div class="row"><h2>${titulos[tipo]} · ${esc(e.nombre)}</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack"><div class="field"><label for="nmF">Fecha</label><input id="nmF" name="fecha" type="date" required value="${fDef}" max="${hoy()}"></div>${cuerpo}
+    ${tipo!=='extra'?`<div class="field"><label for="nmD">${tipo==='descuento'?'Motivo':'Nota'} (opcional)</label><input id="nmD" name="desc" maxlength="80"></div>`:''}
+    <button class="btn pri block" type="submit">Guardar</button></form>`,v=>{
+      const f=v.fecha,id=uid();let data={empleadoId:empId,fecha:f,tipo,ts:Date.now(),descripcion:(v.desc||'').trim(),eliminado:false},ops=[];
+      if(tipo==='adelanto'){const ta=tasaCampo(f,'usd'),m=+v.monto;if(_sel.met==='EDIV')Object.assign(data,{montoUSD:r2(m),montoBs:ta?r2(m*ta):0});else Object.assign(data,{montoBs:r2(m),montoUSD:ta?r2(m/ta):0});data.metodo=_sel.met;const a={};incMov(a,_sel.met,data.montoBs,data.montoUSD,-1,f,false);ops=opSaldos(a)}
+      if(tipo==='consumo'){const items=Object.entries(_sel.cart).filter(([,q])=>q>0).map(([pid,q])=>{const p=D.carta.find(x=>x.id===pid);return{id:pid,nombre:p.nombre,qty:q,precio:p.precio,subtotal:r2(p.precio*q),consumo:p.consumo||{}}});
+        const tot=r2(items.reduce((a,i)=>a+i.subtotal,0)+(+v.extra||0));if(tot<=0){toast('Elige productos o escribe un monto');return}
+        Object.assign(data,{montoUSD:tot,montoBs:null,items,descripcion:data.descripcion||items.map(i=>i.qty+'× '+i.nombre).join(', ')});ops=opsStock(consumoDe(items))}
+      if(tipo==='extra'){const ta=tasaCampo(f,'eur'),m=+v.monto;Object.assign(data,{horas:+v.horas,montoUSD:r2(m),montoBs:ta?r2(m*ta):0})}
+      if(tipo==='descuento'){const ta=tasaCampo(f,'eur'),m=+v.monto;Object.assign(data,{subtipo:_sel.sub,horas:_sel.sub==='horas'?(+v.horas||0):null,montoUSD:r2(m),montoBs:ta?r2(m*ta):0})}
+      Store.write([{col:'nomina_movs',id,data},...ops]);cerrarHoja();toast('Guardado');
+    });
+  if(tipo==='adelanto')_sel.onMet=()=>{$('#nmML').textContent=_sel.met==='EDIV'?'Monto en $':'Monto en Bs'};
+  if(tipo==='descuento'){const sug=()=>{const sal=+e.salarioSemanalUSD||0,h=+($('#nmH')?.value)||0,m=_sel.sub==='dia'?sal/6:sal/6/8*h;$('#nmHW').hidden=_sel.sub==='dia';$('#nmSug').textContent=m?`Sugerido según su salario: ${usd(m)}`:'';if(m&&!$('#nmM').dataset.touched)$('#nmM').value=m.toFixed(2)};
+    _sel.onOpt=sug;$('#nmH').oninput=sug;$('#nmM').oninput=()=>{$('#nmM').dataset.touched='1'};sug()}
+  if(tipo==='consumo'){const draw=()=>{const q=($('#nmBus').value||'').toLowerCase();const l=prods.filter(p=>!q||p.nombre.toLowerCase().includes(q)||_sel.cart[p.id]);
+      $('#nmList').innerHTML=l.map(p=>`<div class="li"><span class="grow small">${esc(p.nombre)} <span class="muted num">${usd(p.precio)}</span></span><span class="qty"><button type="button" data-cq="${p.id}" data-d="-1" aria-label="Quitar">−</button><span class="num">${_sel.cart[p.id]||0}</span><button type="button" data-cq="${p.id}" data-d="1" aria-label="Agregar">+</button></span></div>`).join('');
+      $('#nmTot').textContent=usd(Object.entries(_sel.cart).reduce((a,[pid,qq])=>a+(D.carta.find(x=>x.id===pid)?.precio||0)*qq,0));
+      document.querySelectorAll('[data-cq]').forEach(b=>b.onclick=()=>{const n=Math.max(0,(_sel.cart[b.dataset.cq]||0)+ +b.dataset.d);_sel.cart[b.dataset.cq]=n;draw()})};
+    $('#nmBus').oninput=draw;draw()}
+}
+function delNomMov(id){
+  const m=D.nomMovs.find(x=>x.id===id);let ops=[];
+  if(m.tipo==='adelanto'){const a={};incMov(a,m.metodo,m.montoBs,m.montoUSD,+1,m.fecha,false);ops=opSaldos(a)}
+  if(m.tipo==='consumo'&&m.items)ops=opsStock(restar({},consumoDe(m.items)));
+  Store.write([{col:'nomina_movs',id,data:{eliminado:true}},...ops]);toast('Movimiento borrado');
+}
+function hojaPagarNom(empId){
+  const e=D.empleados.find(x=>x.id===empId),sem=semanaDe(semOff),r=netoSemana(e,sem);_sel={met:'PM'};
+  if(!r.tasaEUR){toast('Falta la tasa del euro para calcular el pago');return}
+  hoja(`<div class="row"><h2>Pagar a ${esc(e.nombre)}</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack"><div class="small muted">Semana ${semTxt(sem)}</div>
+    <div class="row card" style="background:var(--sunk);border:0"><b>Neto</b><b class="num" style="font-size:1.3rem">${bs(r.netoBs)}</b></div>
+    <div class="field"><label>Pagado con</label>${selMet('PM')}</div>
+    <button class="btn pri block" type="submit">Registrar pago</button></form>`,()=>{
+      const netoUSD=r.tasaUSD?r2(r.netoBs/r.tasaUSD):0,id=uid();
+      const pago={empleadoId:empId,nombreEmpleado:e.nombre,fecha:hoy(),ts:Date.now(),semanaDesde:sem.desde,semanaHasta:sem.hasta,salarioBaseUSD:r.salarioUSD,salarioBaseBs:r.salarioBs,horasExtraBs:r.horasExtraBs,totalHorasExtra:r.totalHorasExtra,descuentosBs:r.descuentosBs,totalDescuentos:r.totalDescuentos,adelantosBs:r.adelantosBs,consumosUSD:r.consumosUSD,consumosBs:r.consumosBs,netoBs:r.netoBs,netoUSD,metodoPago:_sel.met,tasaEURUsada:r.tasaEUR,tasaUSDUsada:r.tasaUSD,eliminado:false};
+      const a={};incMov(a,_sel.met,pago.netoBs,netoUSD,-1,pago.fecha,false);
+      Store.write([{col:'nomina_pagos',id,data:pago},...opSaldos(a)]);hojaRecibo({...pago,id});toast('Pago registrado');
+    });
+}
+function textoRecibo(p){return `GUAYOYO · Recibo de pago\nEmpleado: ${p.nombreEmpleado}\nSemana: ${p.semanaDesde} al ${p.semanaHasta}\nFecha de pago: ${p.fecha}\n\nSalario base (tasa € ${nf2.format(p.tasaEURUsada||0)}): ${bs(p.salarioBaseBs)}\n+ Horas extra${p.totalHorasExtra?` (${p.totalHorasExtra} h)`:''}: ${bs(p.horasExtraBs)}\n− Descuentos: ${bs(p.descuentosBs||0)}\n− Adelantos: ${bs(p.adelantosBs)}\n− Consumos: ${usd(p.consumosUSD)} (${bs(p.consumosBs)})\n\nNETO PAGADO: ${bs(p.netoBs)}\nPagado con ${METODOS[p.metodoPago]?.n||''}`}
+function hojaRecibo(p){
+  if(typeof p==='string')p=D.nomPagos.find(x=>x.id===p);if(!p)return;
+  hoja(`<div class="row"><h2>Recibo</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <div class="stack"><pre id="recTxt" style="white-space:pre-wrap;font-family:var(--body);background:var(--sunk);border-radius:12px;padding:14px;margin:0;font-size:.92rem;user-select:text">${esc(textoRecibo(p))}</pre>
+  <button class="btn azul block" data-a2="copiarRecibo">Copiar para enviar por WhatsApp</button></div>`);
+}
+function delPagoNom(id){const p=D.nomPagos.find(x=>x.id===id),a={};incMov(a,p.metodoPago,p.netoBs,p.netoUSD,+1,p.fecha,false);Store.write([{col:'nomina_pagos',id,data:{eliminado:true}},...opSaldos(a)]);toast('Pago borrado')}
+
+/* ---- importación desde la app anterior ---- */
+let imp=null;
+async function cargarViejo(){
+  const box=$('#impBox');box.innerHTML='<div class="small">Buscando las facturas en Google Sheets… puede tardar hasta un minuto.</div>';
+  try{
+    const r=await fetch(APPS_SCRIPT_VIEJO,{cache:'no-store'});const d=await r.json();imp=prepararImport(d);
+    const p=imp.pend;
+    box.innerHTML=p.length?`<div class="notice azul small">Encontré ${p.length} ${p.length===1?'factura pendiente':'facturas pendientes'} por ${usd(p.reduce((a,f)=>a+(+f.montoUSD||0),0))}:<br>${p.map(f=>`• ${esc(f.descripcion)} · ${usd(f.montoUSD)} · pagar el ${esc(f.fechaPago)}`).join('<br>')}</div>
+      <button class="btn pri block" data-a2="confirmarImport" style="margin-top:10px">Importar estas facturas</button>`:'<div class="notice azul small">La app anterior no tiene facturas pendientes. No hay nada que traer.</div>';
+  }catch(e){console.error(e);box.innerHTML='<div class="notice bad small">No se pudo descargar. Revisa que haya internet y vuelve a intentarlo.</div>'}
+}
+function prepararImport(d){
+  const pend=(d.facturas||[]).filter(f=>f&&!f._eliminado&&String(f._eliminado)!=='true'&&f.estado!=='pagada');
+  const ops=pend.map(f=>({col:'facturas',id:'v_'+f.id,merge:false,data:{descripcion:f.descripcion||'',montoUSD:r2(+f.montoUSD||0),fechaPago:f.fechaPago||hoy(),estado:'pendiente',ts:+f._ts||Date.now(),eliminado:false,importado:true}}));
+  ops.push({col:'config',id:'general',data:{importadoTs:Date.now()}});
+  return{ops,pend};
+}
+function confirmarImport(){
+  if(!imp)return;const ops=imp.ops;
+  for(let i=0;i<ops.length;i+=400)Store.write(ops.slice(i,i+400));
+  const bx=$('#impBox');if(bx)bx.innerHTML=`<div class="notice azul small">Listo. Las facturas pendientes ya están en Admin → Pagos y gastos.</div>`;imp=null;
+}
+
+/* ---- eventos de la etapa 2 ---- */
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-a2]');if(!el)return;const d=el.dataset,id=d.id;
+  switch(d.a2){
+    case 'cuadrar':hojaCuadrar();break;
+    case 'aporte':hojaAporte();break;
+    case 'cambio':hojaCambio();break;
+    case 'devolver':hojaDevolver(id);break;
+    case 'ahorro':hojaAhorro(d.t);break;
+    case 'delDinero':if(!arm(el,'¿Borrar?'))return;delDinero(d.k,id);break;
+    case 'factura':hojaFactura(id);break;
+    case 'pagarFactura':hojaPagarFactura(id);break;
+    case 'delFactura':if(!arm(el,'¿Borrar?'))return;delFactura(id);break;
+    case 'sem':semOff=+d.d===0?0:Math.min(0,semOff+ +d.d);render();break;
+    case 'toggleEmp':empAbierto=empAbierto===id?null:id;render();break;
+    case 'empleado':hojaEmpleado(id);break;
+    case 'delEmp':if(!arm(el,'¿Borrar?'))return;Store.write([{col:'empleados',id,data:{eliminado:true}}]);cerrarHoja();toast('Empleado borrado');break;
+    case 'nmov':hojaNomMov(d.t,id);break;
+    case 'delNomMov':if(!arm(el,'¿?'))return;delNomMov(id);break;
+    case 'pagarNom':hojaPagarNom(id);break;
+    case 'recibo':hojaRecibo(id);break;
+    case 'delPagoNom':if(!arm(el,'¿Borrar?'))return;delPagoNom(id);break;
+    case 'copiarRecibo':{const t=$('#recTxt').textContent;const ok=()=>toast('Recibo copiado');
+      if(navigator.clipboard)navigator.clipboard.writeText(t).then(ok).catch(()=>{const r=document.createRange();r.selectNodeContents($('#recTxt'));const s=getSelection();s.removeAllRanges();s.addRange(r);toast('Texto seleccionado: cópialo')});break}
+    case 'cargarViejo':cargarViejo();break;
+    case 'confirmarImport':confirmarImport();break;
+  }
+});
+
+/* =========================================================
    EVENTOS
    ========================================================= */
 function toast(t){const e=$('#toast');e.textContent=t;e.hidden=false;clearTimeout(toast.h);toast.h=setTimeout(()=>e.hidden=true,2600)}
@@ -844,15 +1206,15 @@ document.addEventListener('click',e=>{
     case 'cancelEdit':editPedido=null;cart={};render();break;
     case 'abiertas':hojaAbiertas();break;
     case 'cobrarAbierta':{const p=D.abiertas.find(x=>x.id===id),t=turnoActual();if(!p||!t)return;const tasa=p.tasa||tasaHoy();
-      sheetCobro({total:p.totalUSD,tasa,titulo:'Cobrar '+(p.referencia||'#'+p.num),boton:'Cobrar',onPagar:pagos=>{Store.write([{col:'pedidos',id:p.id,data:{estado:'pagado',pagos,cobroTurnoId:t.id,cobroTs:Date.now(),cobradoPor:t.encargado,tasa,totalBs:tasa?r2(p.totalUSD*tasa):null}}]);cerrarHoja();toast('Cuenta cobrada')}});break}
+      sheetCobro({total:p.totalUSD,tasa,titulo:'Cobrar '+(p.referencia||'#'+p.num),boton:'Cobrar',onPagar:pagos=>{const a={};incPagos(a,pagos,+1,hoy());Store.write([{col:'pedidos',id:p.id,data:{estado:'pagado',pagos,cobroTurnoId:t.id,cobroTs:Date.now(),cobradoPor:t.encargado,tasa,totalBs:tasa?r2(p.totalUSD*tasa):null}},...opSaldos(a)]);cerrarHoja();toast('Cuenta cobrada')}});break}
     case 'agregarAbierta':{const p=D.abiertas.find(x=>x.id===id);if(!p)return;editPedido=p;cart=Object.fromEntries(p.items.map(i=>[i.id,i.qty]));cerrarHoja();tab='vender';render();toast('Agrega productos y toca Cobrar → Guardar cambios');break}
     case 'cancelAbierta':{if(!arm(el,'¿Cancelar? Toca otra vez'))return;const p=D.abiertas.find(x=>x.id===id);Store.write([{col:'pedidos',id,data:{eliminado:true,estado:'cancelado',eliminadoTs:Date.now()}},...opsStock(restar({},consumoDe(p.items)))]);hojaAbiertas();toast('Cuenta cancelada');break}
     case 'verPedido':hojaPedido(id);break;
     case 'editPedido':{const p=D.pedidos.find(x=>x.id===id);editPedido=p;cart=Object.fromEntries(p.items.map(i=>[i.id,i.qty]));cerrarHoja();tab='vender';render();break}
-    case 'repagar':{const p=D.pedidos.find(x=>x.id===id);sheetCobro({total:p.totalUSD,tasa:p.tasa,titulo:'Cambiar pago #'+p.num,boton:'Guardar pago',onPagar:pagos=>{Store.write([{col:'pedidos',id,data:{pagos}}]);cerrarHoja();toast('Pago actualizado')}});break}
-    case 'delPedido':{if(!arm(el,'¿Borrar? Toca otra vez'))return;const p=D.pedidos.find(x=>x.id===id);Store.write([{col:'pedidos',id,data:{eliminado:true,eliminadoTs:Date.now()}},...opsStock(restar({},consumoDe(p.items)))]);cerrarHoja();toast('Pedido borrado');break}
+    case 'repagar':{const p=D.pedidos.find(x=>x.id===id);sheetCobro({total:p.totalUSD,tasa:p.tasa,titulo:'Cambiar pago #'+p.num,boton:'Guardar pago',onPagar:pagos=>{const a={};incPagos(a,p.pagos,-1,fechaCobro(p));incPagos(a,pagos,+1,fechaCobro(p));Store.write([{col:'pedidos',id,data:{pagos}},...opSaldos(a)]);cerrarHoja();toast('Pago actualizado')}});break}
+    case 'delPedido':{if(!arm(el,'¿Borrar? Toca otra vez'))return;const p=D.pedidos.find(x=>x.id===id);const a={};if(p.estado==='pagado')incPagos(a,p.pagos,-1,fechaCobro(p));Store.write([{col:'pedidos',id,data:{eliminado:true,eliminadoTs:Date.now()}},...opsStock(restar({},consumoDe(p.items))),...opSaldos(a)]);cerrarHoja();toast('Pedido borrado');break}
     case 'gasto':hojaGasto(id);break;
-    case 'delGasto':if(!arm(el,'¿Borrar? Toca otra vez'))return;Store.write([{col:'gastos',id,data:{eliminado:true}}]);cerrarHoja();toast('Gasto borrado');break;
+    case 'delGasto':{if(!arm(el,'¿Borrar? Toca otra vez'))return;const g=D.gastos.find(x=>x.id===id),a={};incMov(a,g.metodo,g.montoBs,g.montoUSD,+1,g.fecha,false);Store.write([{col:'gastos',id,data:{eliminado:true}},...opSaldos(a)]);cerrarHoja();toast('Gasto borrado');break}
     case 'cerrarTurno':hojaCerrarTurno();break;
     case 'verTurno':hojaVerTurno(id);break;
     case 'forzarCierre':if(!arm(el,'¿Seguro? Toca otra vez'))return;Store.write([{col:'turnos',id,data:{estado:'cerrado',cierre:null,cerradoSinCuadre:Date.now()}}]);cerrarHoja();break;
@@ -866,7 +1228,7 @@ document.addEventListener('click',e=>{
       const viejo=x=>(x.ts||x.inicioTs||0)<CORTE_PRUEBAS;
       const ops=[...D.pedidos.filter(viejo).map(x=>({col:'pedidos',id:x.id,del:true})),...D.abiertas.filter(viejo).map(x=>({col:'pedidos',id:x.id,del:true})),
         ...D.gastos.filter(viejo).map(x=>({col:'gastos',id:x.id,del:true})),...D.turnos.filter(viejo).map(x=>({col:'turnos',id:x.id,del:true})),
-        ...D.invMovs.filter(viejo).map(x=>({col:'inv_movs',id:x.id,del:true})),...D.inv.map(i=>({col:'inv_items',id:i.id,data:{stock:0}}))];
+        ...D.invMovs.filter(viejo).map(x=>({col:'inv_movs',id:x.id,del:true})),...D.inv.map(i=>({col:'inv_items',id:i.id,data:{stock:0}})),{col:'config',id:'saldos',data:{efectivoBs:0,efectivoUSD:0,bancoBs:0,usdt:0},merge:false}];
       for(let i=0;i<ops.length;i+=400)Store.write(ops.slice(i,i+400));
       turnoId=null;lsSet('guayoyo2_turno',null);render();toast('Pruebas borradas');break}
     case 'borrarPrueba':if(!arm(el,'¿Borrar todo? Toca otra vez'))return;try{localStorage.removeItem('guayoyo2_prueba');localStorage.removeItem('guayoyo2_turno')}catch(e){}location.reload();break;
