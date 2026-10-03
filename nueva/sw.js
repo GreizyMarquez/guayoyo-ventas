@@ -1,6 +1,6 @@
 // Guayoyo (nueva) — guarda la app en el teléfono para que abra sin internet.
 // Los datos los maneja Firebase con su propia copia sin conexión.
-const CACHE='guayoyo-nueva-v1';
+const CACHE='guayoyo-nueva-v2';
 const BASE=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(BASE)).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
@@ -13,5 +13,5 @@ self.addEventListener('fetch',e=>{
   }
   if(u.origin!==self.location.origin)return;
   // La app: primero internet (para ver actualizaciones), si no hay, la copia.
-  e.respondWith(fetch(r).then(res=>{const cp=res.clone();caches.open(CACHE).then(c=>c.put(r,cp));return res}).catch(()=>caches.match(r).then(c=>c||caches.match('./index.html'))));
+  e.respondWith(fetch(r,{cache:'no-cache'}).then(res=>{const cp=res.clone();caches.open(CACHE).then(c=>c.put(r,cp));return res}).catch(()=>caches.match(r).then(c=>c||caches.match('./index.html'))));
 });

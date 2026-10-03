@@ -211,6 +211,7 @@ const FIREBASE_CONFIG = {
   appId: "1:195298633525:web:a20e4e22de15c916508e7c"
 };
 const FB_VER = '10.12.2';
+const APP_VERSION = '1.2';
 
 /* ---------- utilidades ---------- */
 const $=s=>document.querySelector(s);
@@ -617,6 +618,7 @@ function aAjustes(){
     <div class="list">${tasas.map(t=>`<button class="li" data-act="tasa" data-fecha="${t.id}"><span class="grow">${fechaCorta(t.id)}</span><span class="amt num">$ ${nf2.format(t.usd||0)}<small>€ ${nf2.format(t.eur||0)}</small></span></button>`).join('')||'<div class="empty small">Sin tasas guardadas.</div>'}</div></div>
   ${Date.now()<CORTE_PRUEBAS+7*864e5&&Store.mode==='firebase'?`<div class="card stack"><h2>Borrar las pruebas</h2><p class="small muted" style="margin:0">Borra los pedidos, gastos, turnos y movimientos de inventario registrados hasta el 3 de octubre, y deja las existencias en cero. La carta, las tasas y el PIN se quedan como están.</p><button class="btn danger" data-act="borrarPruebasNube">Borrar pruebas</button></div>`:''}
   <div class="card stack"><h2>PIN de administración</h2><button class="btn" data-act="cambiarPin">Cambiar PIN</button></div>
+  <p class="xs muted" style="text-align:center;margin:0">Versión ${APP_VERSION}</p>
   ${Store.mode==='local'?`<div class="notice warn">Estás en <b>modo prueba</b>: los datos se guardan solo en este dispositivo. Cuando conectemos Firebase se compartirán entre todos los teléfonos. <button class="btn sm" data-act="borrarPrueba" style="margin-top:8px">Borrar datos de prueba</button></div>`:''}`;
 }
 
