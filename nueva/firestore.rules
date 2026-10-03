@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Solo la app (con su inicio de sesión anónimo) puede leer y escribir.
+    match /{coleccion}/{doc} {
+      allow read, write: if request.auth != null
+        && coleccion in ['carta','inv_items','inv_movs','pedidos','gastos','turnos','tasas','config'];
+    }
+  }
+}
