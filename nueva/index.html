@@ -313,6 +313,7 @@ const D={carta:[],inv:[],invMovs:[],pedidos:[],abiertas:[],gastos:[],turnos:[],t
 let tab='vender', cat='Todos', cart={}, editPedido=null, adminSub='resumen', resumenRango='hoy';
 let turnoId=lsGet('guayoyo2_turno',null);
 const VENTANA=sumarDias(hoy(),-40);
+const CORTE_PRUEBAS=new Date('2026-10-04T00:00:00-05:00').getTime();
 
 function esAdmin(){return ssGet('guayoyo2_admin')==='1'}
 function turnoActual(){return D.turnos.find(t=>t.id===turnoId&&t.estado==='abierto')||null}
@@ -614,6 +615,7 @@ function aAjustes(){
     <form id="fEnc" class="stack"><div class="field"><label for="encs">Un nombre por línea</label><textarea id="encs" rows="4">${esc((D.config.encargados||[]).join('\n'))}</textarea></div><button class="btn azul" type="submit">Guardar nombres</button></form></div>
   <div class="card stack"><div class="row"><h2>Tasas BCV</h2><button class="btn sm" data-act="tasa" data-otro="1">Corregir otro día</button></div>
     <div class="list">${tasas.map(t=>`<button class="li" data-act="tasa" data-fecha="${t.id}"><span class="grow">${fechaCorta(t.id)}</span><span class="amt num">$ ${nf2.format(t.usd||0)}<small>€ ${nf2.format(t.eur||0)}</small></span></button>`).join('')||'<div class="empty small">Sin tasas guardadas.</div>'}</div></div>
+  ${Date.now()<CORTE_PRUEBAS+7*864e5&&Store.mode==='firebase'?`<div class="card stack"><h2>Borrar las pruebas</h2><p class="small muted" style="margin:0">Borra los pedidos, gastos, turnos y movimientos de inventario registrados hasta el 3 de octubre, y deja las existencias en cero. La carta, las tasas y el PIN se quedan como están.</p><button class="btn danger" data-act="borrarPruebasNube">Borrar pruebas</button></div>`:''}
   <div class="card stack"><h2>PIN de administración</h2><button class="btn" data-act="cambiarPin">Cambiar PIN</button></div>
   ${Store.mode==='local'?`<div class="notice warn">Estás en <b>modo prueba</b>: los datos se guardan solo en este dispositivo. Cuando conectemos Firebase se compartirán entre todos los teléfonos. <button class="btn sm" data-act="borrarPrueba" style="margin-top:8px">Borrar datos de prueba</button></div>`:''}`;
 }
@@ -858,6 +860,13 @@ document.addEventListener('click',e=>{
     case 'delProducto':if(!arm(el,'¿Borrar? Toca otra vez'))return;Store.write([{col:'carta',id,del:true}]);cerrarHoja();toast('Producto borrado');break;
     case 'subirPrecios':hojaSubirPrecios();break;
     case 'cambiarPin':Store.write([{col:'config',id:'general',data:{pinHash:null}}]);ssSet('guayoyo2_admin',null);D.config.pinHash=null;tab='admin';render();toast('Crea el nuevo PIN');break;
+    case 'borrarPruebasNube':{if(!arm(el,'¿Borrar todo? Toca otra vez'))return;
+      const viejo=x=>(x.ts||x.inicioTs||0)<CORTE_PRUEBAS;
+      const ops=[...D.pedidos.filter(viejo).map(x=>({col:'pedidos',id:x.id,del:true})),...D.abiertas.filter(viejo).map(x=>({col:'pedidos',id:x.id,del:true})),
+        ...D.gastos.filter(viejo).map(x=>({col:'gastos',id:x.id,del:true})),...D.turnos.filter(viejo).map(x=>({col:'turnos',id:x.id,del:true})),
+        ...D.invMovs.filter(viejo).map(x=>({col:'inv_movs',id:x.id,del:true})),...D.inv.map(i=>({col:'inv_items',id:i.id,data:{stock:0}}))];
+      for(let i=0;i<ops.length;i+=400)Store.write(ops.slice(i,i+400));
+      turnoId=null;lsSet('guayoyo2_turno',null);render();toast('Pruebas borradas');break}
     case 'borrarPrueba':if(!arm(el,'¿Borrar todo? Toca otra vez'))return;try{localStorage.removeItem('guayoyo2_prueba');localStorage.removeItem('guayoyo2_turno')}catch(e){}location.reload();break;
   }
 });
