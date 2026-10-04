@@ -212,7 +212,7 @@ const FIREBASE_CONFIG = {
   appId: "1:195298633525:web:a20e4e22de15c916508e7c"
 };
 const FB_VER = '10.12.2';
-const APP_VERSION = '2.2';
+const APP_VERSION = '2.3';
 
 /* ---------- utilidades ---------- */
 const $=s=>document.querySelector(s);
@@ -588,21 +588,29 @@ function aResumen(){
   const ps=D.pedidos.filter(p=>!p.eliminado&&p.estado==='pagado'&&p.fecha>=a&&p.fecha<=b);
   const gs=D.gastos.filter(g=>!g.eliminado&&g.fecha>=a&&g.fecha<=b);
   const tot=r2(ps.reduce((s,p)=>s+p.totalUSD,0)), gt=r2(gs.reduce((s,g)=>s+(g.montoUSD||0),0));
-  const met={PM:0,POS:0,EBS:0,EDIV:0};for(const p of ps)for(const x of p.pagos||[])met[x.metodo]+=x.montoUSD||0;
+  const met={PM:0,POS:0,EBS:0,EDIV:0},metBs={PM:0,POS:0,EBS:0,EDIV:0};for(const p of ps)for(const x of p.pagos||[]){met[x.metodo]+=x.montoUSD||0;metBs[x.metodo]+=x.montoBs||0}
+  const totBs=r2(ps.reduce((s,p)=>s+(+p.totalBs||0),0)), gtBs=r2(gs.reduce((s,g)=>s+(+g.montoBs||0),0));
   const prod={};for(const p of ps)for(const i of p.items){prod[i.nombre]=prod[i.nombre]||{q:0,v:0};prod[i.nombre].q+=i.qty;prod[i.nombre].v+=i.subtotal}
   const top=Object.entries(prod).sort((x,y)=>y[1].v-x[1].v).slice(0,8), mx=top[0]?.[1].v||1;
-  const dias={};for(const p of ps)dias[p.fecha]=(dias[p.fecha]||0)+p.totalUSD;
+  const dias={},diasBs={};for(const p of ps){dias[p.fecha]=(dias[p.fecha]||0)+p.totalUSD;diasBs[p.fecha]=(diasBs[p.fecha]||0)+(+p.totalBs||0)}
   return `
   <div class="seg">${[['hoy','Hoy'],['ayer','Ayer'],['7','7 días'],['mes','Este mes']].map(([k,v])=>`<button class="${resumenRango===k?'on':''}" data-rango="${k}">${v}</button>`).join('')}</div>
   <div class="kpis">
-    <div class="kpi big"><div class="label">Ventas ${a===b?fechaCorta(a):fechaCorta(a)+' a '+fechaCorta(b)}</div><div class="v num">${usd(tot)}</div><div class="xs" style="opacity:.8">${ps.length} pedidos · ticket promedio ${usd(ps.length?tot/ps.length:0)}</div></div>
-    <div class="kpi"><div class="label">Gastos</div><div class="v num bad">${usd(gt)}</div></div>
-    <div class="kpi"><div class="label">Ventas − gastos</div><div class="v num">${usd(tot-gt)}</div></div>
+    <div class="kpi big"><div class="label">Ventas ${a===b?fechaCorta(a):fechaCorta(a)+' a '+fechaCorta(b)}</div><div class="v num">${usd(tot)}</div><div class="num" style="font-weight:700;opacity:.9">${bs(totBs)}</div><div class="xs" style="opacity:.8">${ps.length} pedidos · ticket promedio ${usd(ps.length?tot/ps.length:0)}</div></div>
+    <div class="kpi"><div class="label">Gastos</div><div class="v num bad">${usd(gt)}</div><div class="xs muted num">${bs(gtBs)}</div></div>
+    <div class="kpi"><div class="label">Ventas − gastos</div><div class="v num">${usd(tot-gt)}</div><div class="xs muted num">${bs(totBs-gtBs)}</div></div>
   </div>
-  <div class="card"><h2>Por método de pago</h2><div class="list" style="margin-top:6px">${ORDEN_MET.map(m=>`<div class="li"><span class="grow">${METODOS[m].n}</span><span class="amt num">${usd(met[m])}<small>${tot?Math.round(met[m]/tot*100):0}%</small></span></div>`).join('')}</div>
-  <p class="hint" style="margin:6px 0 0">Montos en dólares equivalentes. Lo cobrado por punto de venta llega al banco al día siguiente.</p></div>
-  ${Object.keys(dias).length>1?`<div class="card"><h2>Ventas por día</h2><div class="list" style="margin-top:6px">${Object.entries(dias).sort().reverse().map(([f,v])=>`<div class="li"><span class="grow">${fechaCorta(f)}</span><span class="amt num">${usd(v)}</span></div>`).join('')}</div></div>`:''}
+  <div class="card"><h2>Por método de pago</h2><div class="list" style="margin-top:6px">${ORDEN_MET.map(m=>`<div class="li"><span class="grow">${METODOS[m].n}</span><span class="amt num">${usd(met[m])}<small>${METODOS[m].mon==='BS'?bs(metBs[m])+' · ':''}${tot?Math.round(met[m]/tot*100):0}%</small></span></div>`).join('')}</div>
+  <p class="hint" style="margin:6px 0 0">Los Bs son los montos cobrados con la tasa de cada pedido. Lo cobrado por punto de venta llega al banco al día siguiente.</p></div>
+  ${Object.keys(dias).length>1?`<div class="card"><h2>Ventas por día</h2><div class="list" style="margin-top:6px">${Object.entries(dias).sort().reverse().map(([f,v])=>`<div class="li"><span class="grow">${fechaCorta(f)}</span><span class="amt num">${usd(v)}<small>${bs(diasBs[f])}</small></span></div>`).join('')}</div></div>`:''}
+  ${pedidosCard(D.pedidos.filter(p=>!p.eliminado&&p.fecha>=a&&p.fecha<=b),a===b?'Pedidos del día':'Pedidos del período')}
   <div class="card"><h2>Lo más vendido</h2>${top.length?`<div class="stack" style="margin-top:10px">${top.map(([n,x])=>`<div><div class="row small"><span>${esc(n)} <span class="muted">× ${x.q}</span></span><span class="num">${usd(x.v)}</span></div><div class="bar" style="margin-top:4px"><i style="width:${x.v/mx*100}%;background:var(--azul)"></i></div></div>`).join('')}</div>`:`<div class="empty small">Sin ventas en este período.</div>`}</div>`;
+}
+function pedidosCard(lista,titulo,abierto){
+  const l=lista.slice().sort((x,y)=>(y.cobroTs||y.ts)-(x.cobroTs||x.ts));
+  return `<details class="card" ${abierto?'open':''}><summary class="row" style="list-style:none"><h2>${titulo}</h2><span class="tag azul">${l.length}</span></summary>
+    ${l.length?`<div class="list" style="margin-top:8px">${l.slice(0,150).map(p=>`<button class="li" data-act="verPedido" data-id="${p.id}"><div class="grow"><div class="t">#${p.num}${p.referencia?' · '+esc(p.referencia):''} <span class="xs muted">${p.fecha!==hoy()?fechaCorta(p.fecha)+' ':''}${hora(p.cobroTs||p.ts)}${p.encargado?' · '+esc(p.encargado):''}</span></div><div class="s">${p.items.map(i=>i.qty+'× '+esc(i.nombre)).join(', ')}</div></div><div class="amt num">${usd(p.totalUSD)}<small>${p.estado==='abierto'?'<span class="warn">abierta</span>':(p.pagos||[]).map(x=>METODOS[x.metodo].n).join(' + ')}</small></div></button>`).join('')}</div>${l.length>150?'<p class="hint">Se muestran los 150 más recientes. Elige un período más corto para ver el resto.</p>':''}`:'<div class="empty small">No hay pedidos en este período.</div>'}
+  </details>`;
 }
 function aCarta(){
   const cats=[...new Set(D.carta.map(p=>p.cat))];
@@ -746,6 +754,7 @@ function hojaVerTurno(id){
     <div class="card" style="background:var(--sunk);border:0"><div class="row"><span>Efectivo Bs: debía ${bs(c.espBs)}, contó ${bs(c.contBs)}</span></div><div>${fx(c.difBs,bs)}</div>
     <div class="row" style="margin-top:6px"><span>Efectivo $: debía ${usd(c.espUsd)}, contó ${usd(c.contUsd)}</span></div><div>${fx(c.difUsd,usd)}</div></div>
     ${c.nota?`<div><b>Nota:</b> ${esc(c.nota)}</div>`:''}`:`<button class="btn danger" data-act="forzarCierre" data-id="${t.id}">Marcar como cerrado sin cuadre</button>`}
+    ${pedidosCard(D.pedidos.filter(p=>!p.eliminado&&p.estado==='pagado'&&p.cobroTurnoId===t.id),'Pedidos del turno',true)}
   </div>`);
 }
 
