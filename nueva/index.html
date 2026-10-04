@@ -75,6 +75,7 @@ h3{font-size:1rem;font-weight:800}
 
 .chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
+.chips.wrap{flex-wrap:wrap;overflow:visible}
 .chip{flex:none;border:1px solid var(--line);background:var(--surface);border-radius:99px;padding:7px 14px;font-weight:700;font-size:.88rem;color:var(--muted)}
 .chip.on{background:var(--azul);border-color:var(--azul);color:#fff}
 .tag{display:inline-block;font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--sunk);color:var(--muted)}
@@ -211,7 +212,7 @@ const FIREBASE_CONFIG = {
   appId: "1:195298633525:web:a20e4e22de15c916508e7c"
 };
 const FB_VER = '10.12.2';
-const APP_VERSION = '2.1';
+const APP_VERSION = '2.2';
 
 /* ---------- utilidades ---------- */
 const $=s=>document.querySelector(s);
@@ -431,8 +432,8 @@ function vVender(){
   return `
   ${!tasa?`<div class="notice warn row"><span>Falta la tasa BCV de hoy para calcular los bolívares.</span><button class="btn sm" data-act="tasa">Poner tasa</button></div>`:''}
   ${editPedido?`<div class="notice azul row"><span>Editando el pedido #${editPedido.num}</span><button class="btn sm" data-act="cancelEdit">Cancelar</button></div>`:''}
-  <div class="row"><div class="chips grow">${cats.map(c=>`<button class="chip ${c===cat?'on':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div>
-  <button class="btn sm" data-act="abiertas">Cuentas abiertas${D.abiertas.length?` <span class="tag bad">${D.abiertas.length}</span>`:''}</button></div>
+  <div class="row" style="justify-content:flex-end;margin-bottom:10px"><button class="btn sm" data-act="abiertas">Cuentas abiertas${D.abiertas.length?` <span class="tag bad">${D.abiertas.length}</span>`:''}</button></div>
+  <div class="chips wrap" style="margin-bottom:12px">${cats.map(c=>`<button class="chip ${c===cat?'on':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div>
   <div class="grid">${lista.map(p=>{
     const q=cart[p.id]||0;
     const bajo=Object.keys(p.consumo||{}).map(k=>stock[k]).find(i=>i&&i.stock!=null&&i.stock<=(i.minimo??5));
@@ -606,7 +607,7 @@ function aResumen(){
 function aCarta(){
   const cats=[...new Set(D.carta.map(p=>p.cat))];
   return `<div class="btns"><button class="btn azul grow" data-act="producto">+ Nuevo producto</button><button class="btn grow" data-act="subirPrecios">Subir precios por %</button></div>
-  ${cats.map(c=>`<div class="card"><h2>${esc(c)}</h2><div class="list" style="margin-top:4px">${D.carta.filter(p=>p.cat===c).map(p=>`<button class="li" data-act="producto" data-id="${p.id}"><div class="grow"><div class="t" style="${p.activo===false?'text-decoration:line-through;color:var(--muted)':''}">${esc(p.nombre)}</div>${Object.keys(p.consumo||{}).length?`<div class="s">Descuenta: ${Object.entries(p.consumo).map(([k,v])=>fmtQ(v)+' '+esc((D.inv.find(i=>i.id===k)||{}).nombre||'?')).join(', ')}</div>`:''}</div>${p.activo===false?'<span class="tag">Oculto</span>':''}<span class="amt num">${usd(p.precio)}</span></button>`).join('')}</div></div>`).join('')}`;
+  ${cats.map(c=>`<div class="card"><div class="row"><h2>${esc(c)}</h2><button class="btn sm" data-act="renCat" data-cat2="${esc(c)}">Renombrar</button></div><div class="list" style="margin-top:4px">${D.carta.filter(p=>p.cat===c).map(p=>`<button class="li" data-act="producto" data-id="${p.id}"><div class="grow"><div class="t" style="${p.activo===false?'text-decoration:line-through;color:var(--muted)':''}">${esc(p.nombre)}</div>${Object.keys(p.consumo||{}).length?`<div class="s">Descuenta: ${Object.entries(p.consumo).map(([k,v])=>fmtQ(v)+' '+esc((D.inv.find(i=>i.id===k)||{}).nombre||'?')).join(', ')}</div>`:''}</div>${p.activo===false?'<span class="tag">Oculto</span>':''}<span class="amt num">${usd(p.precio)}</span></button>`).join('')}</div></div>`).join('')}`;
 }
 function aTurnos(){
   const ts=D.turnos.slice().sort((a,b)=>b.inicioTs-a.inicioTs);
@@ -803,6 +804,15 @@ function hojaProducto(id){
   document.querySelectorAll('[data-cdel]').forEach(b=>b.onclick=()=>{readCons();cons.splice(+b.dataset.cdel,1);keep(draw)});
   const add=document.querySelector('[data-cadd]');if(add)add.onclick=()=>{readCons();if(!D.inv.length){toast('Primero crea productos en Inventario');return}cons.push([D.inv[0].id,1]);keep(draw)};};
   draw();
+}
+function hojaRenombrarCat(viejo){
+  hoja(`<div class="row"><h2>Renombrar categoría</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <form class="stack"><div class="field"><label for="rcN">Nuevo nombre para "${esc(viejo)}"</label><input id="rcN" name="nombre" required maxlength="30" value="${esc(viejo)}"></div>
+    <p class="hint" style="margin:0">Cambia la categoría de los ${D.carta.filter(p=>p.cat===viejo).length} productos que tiene. Para mover un solo producto a otra categoría, ábrelo y cambia su categoría.</p>
+    <button class="btn azul block" type="submit">Guardar</button></form>`,v=>{
+      const n=v.nombre.trim();if(!n||n===viejo){cerrarHoja();return}
+      Store.write(D.carta.filter(p=>p.cat===viejo).map(p=>({col:'carta',id:p.id,data:{cat:n}})));cerrarHoja();toast('Categoría renombrada');
+    });
 }
 function hojaSubirPrecios(){
   const cats=[...new Set(D.carta.map(x=>x.cat))];
@@ -1221,6 +1231,7 @@ document.addEventListener('click',e=>{
     case 'producto':hojaProducto(id);break;
     case 'delProducto':if(!arm(el,'¿Borrar? Toca otra vez'))return;Store.write([{col:'carta',id,del:true}]);cerrarHoja();toast('Producto borrado');break;
     case 'subirPrecios':hojaSubirPrecios();break;
+    case 'renCat':hojaRenombrarCat(el.dataset.cat2);break;
     case 'cambiarPin':Store.write([{col:'config',id:'general',data:{pinHash:null}}]);ssSet('guayoyo2_admin',null);D.config.pinHash=null;tab='admin';render();toast('Crea el nuevo PIN');break;
     case 'borrarPrueba':if(!arm(el,'¿Borrar todo? Toca otra vez'))return;try{localStorage.removeItem('guayoyo2_prueba');localStorage.removeItem('guayoyo2_turno')}catch(e){}location.reload();break;
   }
