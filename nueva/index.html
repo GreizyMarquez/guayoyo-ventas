@@ -212,7 +212,7 @@ const FIREBASE_CONFIG = {
   appId: "1:195298633525:web:a20e4e22de15c916508e7c"
 };
 const FB_VER = '10.12.2';
-const APP_VERSION = '2.3';
+const APP_VERSION = '2.4';
 
 /* ---------- utilidades ---------- */
 const $=s=>document.querySelector(s);
@@ -1127,11 +1127,118 @@ function hojaPagarNom(empId){
     });
 }
 function textoRecibo(p){return `GUAYOYO · Recibo de pago\nEmpleado: ${p.nombreEmpleado}\nSemana: ${p.semanaDesde} al ${p.semanaHasta}\nFecha de pago: ${p.fecha}\n\nSalario base (tasa € ${nf2.format(p.tasaEURUsada||0)}): ${bs(p.salarioBaseBs)}\n+ Horas extra${p.totalHorasExtra?` (${p.totalHorasExtra} h)`:''}: ${bs(p.horasExtraBs)}\n− Descuentos: ${bs(p.descuentosBs||0)}\n− Adelantos: ${bs(p.adelantosBs)}\n− Consumos: ${usd(p.consumosUSD)} (${bs(p.consumosBs)})\n\nNETO PAGADO: ${bs(p.netoBs)}\nPagado con ${METODOS[p.metodoPago]?.n||''}`}
-function hojaRecibo(p){
+/* ---- recibo formal (imagen) ---- */
+const fechaLarga=f=>{if(!f)return'';const [y,m,d]=f.split('-').map(Number);return new Date(y,m-1,d).toLocaleDateString('es-VE',{day:'numeric',month:'long',year:'numeric'})};
+const numRecibo=p=>'N° '+String(p.fecha||'').replace(/-/g,'')+'-'+String(p.id||'').slice(-4).toUpperCase();
+const TIPO_MOV={extra:'Horas extra',descuento:'Descuento',adelanto:'Adelanto',consumo:'Consumo'};
+function movsDelPago(p){
+  return D.nomMovs.filter(m=>!m.eliminado&&m.empleadoId===p.empleadoId&&m.fecha>=p.semanaDesde&&m.fecha<=p.semanaHasta).sort((a,b)=>a.fecha<b.fecha?-1:a.fecha>b.fecha?1:(a.ts||0)-(b.ts||0));
+}
+async function dibujarRecibo(p){
+  try{await document.fonts.ready}catch(e){}
+  const W=1080,M=80,IN=W-2*M,AZ='#1B2ED4',INK='#1a1d2e',MU='#6b7086',LN='#d9dcea',RJ='#c0392b',SUAVE='#eef0fc';
+  const DSP='"Bricolage Grotesque","Arial Rounded MT Bold",Arial,sans-serif',BODY='Figtree,system-ui,-apple-system,"Segoe UI",sans-serif';
+  const emp=D.empleados.find(x=>x.id===p.empleadoId)||{};
+  const movs=movsDelPago(p);
+  const tEUR=+p.tasaEURUsada||0,tUSD=+p.tasaUSDUsada||0;
+  const salUSD=+p.salarioBaseUSD||(tEUR?(+p.salarioBaseBs||0)/tEUR:0);
+  const sumUSD=t=>movs.filter(m=>m.tipo===t).reduce((a,m)=>a+(+m.montoUSD||0),0);
+  const conceptos=[
+    {c:'Salario base semanal',d:`${usd(salUSD)} × tasa BCV € ${nf2.format(tEUR)}`,v:+p.salarioBaseBs||0,s:+1},
+    {c:'Horas extra',d:p.totalHorasExtra?`${nf2.format(p.totalHorasExtra)} h · ${usd(sumUSD('extra'))}`:'Sin horas extra',v:+p.horasExtraBs||0,s:+1},
+    {c:'Descuentos por tiempo no laborado',d:p.totalDescuentos?`${p.totalDescuentos} ${p.totalDescuentos===1?'registro':'registros'} · ${usd(sumUSD('descuento'))}`:'Sin descuentos',v:+p.descuentosBs||0,s:-1},
+    {c:'Adelantos recibidos',d:sumUSD('adelanto')?`Equivale a ${usd(sumUSD('adelanto'))}`:'Sin adelantos',v:+p.adelantosBs||0,s:-1},
+    {c:'Consumos en el local',d:`${usd(p.consumosUSD)} × tasa BCV $ ${nf2.format(tUSD)}`,v:+p.consumosBs||0,s:-1},
+  ];
+  const cv=document.createElement('canvas'),x=cv.getContext('2d');
+  const font=(w,sz,f=BODY)=>{x.font=`${w} ${sz}px ${f}`};
+  const wrap=(t,maxW)=>{const out=[];let ln='';for(const w of String(t).split(/\s+/)){const tt=ln?ln+' '+w:w;if(x.measureText(tt).width>maxW&&ln){out.push(ln);ln=w}else ln=tt}if(ln)out.push(ln);return out.length?out:['']};
+  // primera pasada mide el alto, la segunda dibuja
+  const pintar=draw=>{
+    let y=0;const T=(t,X,Y,al='left',col=INK)=>{if(draw){x.fillStyle=col;x.textAlign=al;x.fillText(t,X,Y)}};
+    const R=(X,Y,w,h,col)=>{if(draw){x.fillStyle=col;x.fillRect(X,Y,w,h)}};
+    // encabezado
+    R(0,0,W,250,AZ);
+    font(800,78,DSP);T('GUAYOYO',M,128,'left','#fff');
+    font(500,30);T('Empanadas & Café',M,176,'left','#dfe3ff');
+    font(800,34,DSP);T('RECIBO DE PAGO',W-M,112,'right','#fff');
+    font(600,28);T(numRecibo(p),W-M,156,'right','#dfe3ff');
+    font(500,26);T('Nómina semanal',W-M,196,'right','#dfe3ff');
+    y=250+70;
+    // datos
+    const datos=[['Empleado',p.nombreEmpleado||emp.nombre||''],emp.turno?['Turno',emp.turno]:null,['Período',`Del ${fechaLarga(p.semanaDesde)} al ${fechaLarga(p.semanaHasta)}`],['Fecha de pago',fechaLarga(p.fecha)],['Forma de pago',METODOS[p.metodoPago]?.n||''],['Tasas BCV usadas',`€ ${nf2.format(tEUR)}   ·   $ ${nf2.format(tUSD)}`]].filter(Boolean);
+    for(const [k,v] of datos){font(600,25);T(k.toUpperCase(),M,y,'left',MU);font(600,32);const ls=wrap(v,IN-300);ls.forEach((l,i)=>T(l,M+300,y+i*42,'left',INK));y+=Math.max(1,ls.length)*42+18}
+    y+=20;R(M,y,IN,3,AZ);y+=60;
+    // detalle
+    font(800,30,DSP);T('Detalle del pago',M,y,'left',AZ);font(600,24);T('MONTO (Bs)',W-M,y,'right',MU);y+=30;
+    for(const c of conceptos){
+      y+=48;font(600,31);T(c.c,M,y);
+      const neg=c.s<0&&c.v>0;font(700,31);T((c.s<0?'− ':'')+bs(c.v),W-M,y,'right',neg?RJ:INK);
+      y+=36;font(400,25);T(c.d,M,y,'left',MU);y+=22;R(M,y,IN,2,LN);
+    }
+    y+=40;
+    // neto
+    R(M,y,IN,170,SUAVE);
+    font(800,32,DSP);T('NETO PAGADO',M+36,y+66,'left',AZ);
+    font(800,54,DSP);T(bs(p.netoBs),W-M-36,y+76,'right',AZ);
+    font(500,25);T(`Equivale a ${usd(p.netoUSD)} a tasa BCV $ ${nf2.format(tUSD)}`,W-M-36,y+124,'right',MU);
+    y+=170+70;
+    // movimientos
+    if(movs.length){
+      font(800,30,DSP);T('Movimientos de la semana',M,y,'left',AZ);y+=20;
+      for(const m of movs){
+        y+=44;font(600,27);T(fechaCorta(m.fecha),M,y,'left',MU);
+        font(600,28);T(TIPO_MOV[m.tipo]||m.tipo,M+210,y);
+        const monto=m.tipo==='consumo'?usd(m.montoUSD):(m.montoBs?bs(m.montoBs):usd(m.montoUSD));
+        font(700,28);T((m.tipo==='extra'?'+ ':'− ')+monto,W-M,y,'right',m.tipo==='extra'?INK:RJ);
+        const det=[m.horas?nf2.format(m.horas)+' h':'',m.tipo==='descuento'&&m.subtipo==='dia'?'Día completo':'',m.descripcion||''].filter(Boolean).join(' · ');
+        if(det){font(400,24);const ls=wrap(det,IN-210);ls.forEach(l=>{y+=34;T(l,M+210,y,'left',MU)})}
+        y+=20;R(M,y,IN,2,LN);
+      }
+      y+=70;
+    }
+    // firmas
+    y+=90;const fw=(IN-80)/2;
+    R(M,y,fw,3,INK);R(M+fw+80,y,fw,3,INK);
+    font(600,26);T('Recibí conforme',M+fw/2,y+42,'center');T('Entregado por',M+fw+80+fw/2,y+42,'center');
+    font(400,24);T(p.nombreEmpleado||'',M+fw/2,y+78,'center',MU);T('Guayoyo',M+fw+80+fw/2,y+78,'center',MU);
+    y+=78+80;
+    font(400,21);T(`Generado el ${fechaLarga(hoy())} · Guayoyo app v${APP_VERSION}`,W/2,y,'center',MU);
+    y+=50;
+    return y;
+  };
+  cv.width=W;cv.height=1;const H=pintar(false);
+  cv.width=W;cv.height=Math.ceil(H);x.fillStyle='#fff';x.fillRect(0,0,W,cv.height);pintar(true);
+  return cv;
+}
+let _recibo=null;
+async function hojaRecibo(p){
   if(typeof p==='string')p=D.nomPagos.find(x=>x.id===p);if(!p)return;
-  hoja(`<div class="row"><h2>Recibo</h2><button class="btn sm" data-act="close">Cerrar</button></div>
-  <div class="stack"><pre id="recTxt" style="white-space:pre-wrap;font-family:var(--body);background:var(--sunk);border-radius:12px;padding:14px;margin:0;font-size:.92rem;user-select:text">${esc(textoRecibo(p))}</pre>
-  <button class="btn azul block" data-a2="copiarRecibo">Copiar para enviar por WhatsApp</button></div>`);
+  hoja(`<div class="row"><h2>Recibo de pago</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <div class="stack"><div id="recImg" style="background:var(--sunk);border-radius:12px;padding:10px;min-height:120px;display:grid;place-items:center"><span class="small muted">Preparando recibo…</span></div>
+  <button class="btn azul block" data-a2="compartirRecibo">Compartir recibo</button>
+  <button class="btn block" data-a2="descargarRecibo">Descargar imagen</button>
+  <button class="btn ghost block" data-a2="copiarRecibo">Copiar como texto</button>
+  <pre id="recTxt" hidden>${esc(textoRecibo(p))}</pre></div>`);
+  _recibo=null;
+  try{
+    const cv=await dibujarRecibo(p);
+    const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+    const nombre=`Recibo-${slug(p.nombreEmpleado||'empleado')}-${p.semanaDesde}.png`;
+    _recibo={blob,nombre,url:URL.createObjectURL(blob)};
+    const box=$('#recImg');if(box)box.innerHTML=`<img src="${_recibo.url}" alt="Recibo de pago de ${esc(p.nombreEmpleado)}" style="width:100%;border-radius:8px;box-shadow:0 1px 6px rgba(0,0,0,.12);display:block">`;
+  }catch(e){console.error(e);const box=$('#recImg');if(box)box.innerHTML='<span class="small bad">No se pudo crear la imagen. Usa “Copiar como texto”.</span>'}
+}
+function descargarRecibo(){
+  if(!_recibo){toast('Espera un momento, el recibo se está preparando');return}
+  const a=document.createElement('a');a.href=_recibo.url;a.download=_recibo.nombre;document.body.appendChild(a);a.click();a.remove();toast('Recibo descargado');
+}
+async function compartirRecibo(){
+  if(!_recibo){toast('Espera un momento, el recibo se está preparando');return}
+  const file=new File([_recibo.blob],_recibo.nombre,{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'Recibo de pago'})}catch(e){if(e.name!=='AbortError')descargarRecibo()}
+  }else descargarRecibo();
 }
 function delPagoNom(id){const p=D.nomPagos.find(x=>x.id===id),a={};incMov(a,p.metodoPago,p.netoBs,p.netoUSD,+1,p.fecha,false);Store.write([{col:'nomina_pagos',id,data:{eliminado:true}},...opSaldos(a)]);toast('Pago borrado')}
 
@@ -1180,6 +1287,8 @@ document.addEventListener('click',e=>{
     case 'pagarNom':hojaPagarNom(id);break;
     case 'recibo':hojaRecibo(id);break;
     case 'delPagoNom':if(!arm(el,'¿Borrar?'))return;delPagoNom(id);break;
+    case 'compartirRecibo':compartirRecibo();break;
+    case 'descargarRecibo':descargarRecibo();break;
     case 'copiarRecibo':{const t=$('#recTxt').textContent;const ok=()=>toast('Recibo copiado');
       if(navigator.clipboard)navigator.clipboard.writeText(t).then(ok).catch(()=>{const r=document.createRange();r.selectNodeContents($('#recTxt'));const s=getSelection();s.removeAllRanges();s.addRange(r);toast('Texto seleccionado: cópialo')});break}
     case 'cargarViejo':cargarViejo();break;
