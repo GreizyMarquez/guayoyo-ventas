@@ -212,7 +212,7 @@ const FIREBASE_CONFIG = {
   appId: "1:195298633525:web:a20e4e22de15c916508e7c"
 };
 const FB_VER = '10.12.2';
-const APP_VERSION = '2.4';
+const APP_VERSION = '2.5';
 
 /* ---------- utilidades ---------- */
 const $=s=>document.querySelector(s);
@@ -390,7 +390,7 @@ function render(){
   document.querySelectorAll('#tabs [data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===tab));
   $('#adminTabTxt').textContent=esAdmin()?'Admin':'Admin';
   renderSub(t);
-  const needTurno=(tab==='vender'||tab==='caja')&&!t;
+  const needTurno=(tab==='vender'||tab==='caja')&&!t&&!(tab==='vender'&&editPedido&&esAdmin());
   const v=needTurno?vInicioTurno():({vender:vVender,caja:vCaja,inventario:vInventario,admin:vAdmin})[tab]();
   $('#main').innerHTML=v;
   renderCart(!needTurno&&tab==='vender');
@@ -432,7 +432,7 @@ function vVender(){
   return `
   ${!tasa?`<div class="notice warn row"><span>Falta la tasa BCV de hoy para calcular los bolívares.</span><button class="btn sm" data-act="tasa">Poner tasa</button></div>`:''}
   ${editPedido?`<div class="notice azul row"><span>Editando el pedido #${editPedido.num}</span><button class="btn sm" data-act="cancelEdit">Cancelar</button></div>`:''}
-  <div class="row" style="justify-content:flex-end;margin-bottom:10px"><button class="btn sm" data-act="abiertas">Cuentas abiertas${D.abiertas.length?` <span class="tag bad">${D.abiertas.length}</span>`:''}</button></div>
+  <div class="row" style="justify-content:flex-end;margin-bottom:10px"><button class="btn sm" data-act="pedidosHoy">Pedidos de hoy · corregir</button><button class="btn sm" data-act="abiertas">Cuentas abiertas${D.abiertas.length?` <span class="tag bad">${D.abiertas.length}</span>`:''}</button></div>
   <div class="chips wrap" style="margin-bottom:12px">${cats.map(c=>`<button class="chip ${c===cat?'on':''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}</div>
   <div class="grid">${lista.map(p=>{
     const q=cart[p.id]||0;
@@ -456,31 +456,89 @@ function renderCart(show){
 }
 
 /* hoja de cobro */
-let pago={metodo:'',split:false,montos:{}};
+const pagoNuevo=()=>({metodo:'',split:false,montos:{},recibido:'',vUsd:'',vBs:'',vAuto:true});
+let pago=pagoNuevo();
 function sheetCobro(opts){
   /* opts: {total, tasa, onPagar(pagos), conCarrito, onAbierta} */
-  pago={metodo:'',split:false,montos:{}};
+  pago=pagoNuevo();
   const draw=()=>{
     const items=opts.conCarrito?itemsCarrito():null;
     const total=opts.conCarrito?totalCarrito():opts.total, tasa=opts.tasa;
-    const asign=calcSplit(tasa), falta=r2(total-asign.usd);
-    const listo=pago.split?Math.abs(falta)<0.01&&asign.pagos.length:!!pago.metodo;
+    const m1=pago.metodo&&METODOS[pago.metodo], monRec=m1&&m1.mon==='USD'?'$':'Bs';
     $('#sheet').innerHTML=`
     <div class="row"><h2>${opts.titulo||'Cobrar'}</h2><button class="btn sm" data-act="close">Cerrar</button></div>
     <div class="stack">
       ${items?`<div class="list">${items.map(i=>`<div class="li"><div class="grow"><div class="t">${esc(i.nombre)}</div><div class="s num">${usd(i.precio)} c/u</div></div><span class="qty"><button data-q="${i.id}" data-d="-1" aria-label="Quitar uno">−</button><span class="num">${i.qty}</span><button data-q="${i.id}" data-d="1" aria-label="Agregar uno">+</button></span><span class="amt num" style="min-width:64px">${usd(i.subtotal)}</span></div>`).join('')}</div>`:''}
       <div class="row card" style="background:var(--sunk);border:0"><div><div class="label">Total</div><div style="font-family:var(--display);font-weight:800;font-size:1.6rem" class="num">${usd(total)}</div></div><div class="amt num" style="font-size:1.05rem">${tasa?bs(total*tasa):'<span class="warn small">Sin tasa BCV</span>'}<small>${tasa?'tasa '+nf2.format(tasa):''}</small></div></div>
       ${!pago.split?`<div class="pays">${ORDEN_MET.map(m=>`<button class="pay ${pago.metodo===m?'on':''}" data-pay="${m}">${METODOS[m].n}<small class="num">${METODOS[m].mon==='USD'?usd(total):tasa?bs(total*tasa):'—'}</small></button>`).join('')}</div>
+        ${m1?`<div class="row"><label class="grow small" for="cRec"><b>¿Con cuánto pagó?</b> <span class="muted">(${monRec}, opcional)</span></label><input id="cRec" data-rec type="number" inputmode="decimal" step="0.01" min="0" value="${pago.recibido}" placeholder="${m1.mon==='USD'?nf2.format(total):tasa?nf2.format(total*tasa):''}" style="width:130px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px"></div>`:''}
         <button class="btn ghost sm" data-act="split">Dividir el pago entre varios métodos</button>`
       :`<div class="stack">${ORDEN_MET.map(m=>`<div class="row"><label class="grow" for="sp${m}"><b>${METODOS[m].n}</b> <span class="xs muted">(${METODOS[m].mon==='USD'?'$':'Bs'})</span></label><input id="sp${m}" data-sp="${m}" type="number" inputmode="decimal" step="0.01" min="0" value="${pago.montos[m]??''}" style="width:130px;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px"></div>`).join('')}
-        <div class="small ${Math.abs(falta)<0.01?'ok':'warn'}" id="splitMsg">${Math.abs(falta)<0.01?'Cuadra con el total':falta>0?'Falta asignar '+usd(falta):'Sobran '+usd(-falta)}</div>
+        <p class="hint" style="margin:0">Escribe lo que entregó el cliente. Si es más del total, abajo anotas el vuelto.</p>
         <button class="btn ghost sm" data-act="split">Volver a un solo método</button></div>`}
-      <button class="btn pri block" data-act="pagar" ${listo?'':'disabled'}>${opts.boton||'Guardar pedido'}</button>
+      <div class="card stack" id="vBox" style="background:var(--warn-suave);border:0;gap:8px" hidden>
+        <div class="row"><b>Vuelto</b><span class="amt num" id="vTot"></span></div>
+        <div class="g2"><div class="field"><label for="vUsd">En efectivo $</label><input id="vUsd" data-vu="usd" type="number" inputmode="decimal" step="0.01" min="0" value="${pago.vUsd}"></div>
+        <div class="field"><label for="vBs">En efectivo Bs</label><input id="vBs" data-vu="bs" type="number" inputmode="decimal" step="0.01" min="0" value="${pago.vBs}" ${tasa?'':'disabled placeholder="Sin tasa"'}></div></div>
+        <div class="btns"><button type="button" class="btn sm" data-act="vTodo" data-m="usd">Todo en $</button>${tasa?`<button type="button" class="btn sm" data-act="vTodo" data-m="bs">Todo en Bs</button>`:''}</div>
+      </div>
+      <div class="small" id="cobroMsg"></div>
+      <button class="btn pri block" data-act="pagar" disabled>${opts.boton||'Guardar pedido'}</button>
       ${opts.onAbierta?`<div class="divider">o</div><div class="g3" style="grid-template-columns:1fr auto"><div class="field"><label for="refAb">Nombre de la cuenta</label><input id="refAb" placeholder="Ej. Mesa 2, Sr. José" maxlength="40"></div><button class="btn" data-act="dejarAbierta">Dejar abierta</button></div>`:''}
     </div>`;
   };
-  pago.draw=draw;pago.opts=opts;
-  abrirHoja();draw();
+  pago.draw=()=>{draw();updCobro()};pago.opts=opts;
+  abrirHoja();pago.draw();
+}
+/* Calcula lo recibido, el vuelto y si el pago cuadra con el total. */
+function estadoCobro(){
+  const o=pago.opts,total=o.conCarrito?totalCarrito():o.total,tasa=o.tasa;
+  let rec=[];
+  if(pago.split)rec=calcSplit(tasa).pagos;
+  else if(pago.metodo){
+    const r=+pago.recibido||0,mUsd=METODOS[pago.metodo].mon==='USD';
+    if(r>0&&(mUsd||tasa))rec=[{metodo:pago.metodo,montoUSD:r2(mUsd?r:r/tasa),montoBs:mUsd?(tasa?r2(r*tasa):null):r2(r)}];
+    else rec=pagosSimples(pago.metodo,total,tasa);
+  }
+  const recUsd=r2(rec.reduce((a,x)=>a+x.montoUSD,0));
+  const sobra=r2(recUsd-total);
+  const vu=+pago.vUsd||0, vb=tasa?(+pago.vBs||0):0;
+  const vEq=r2(vu+(tasa?vb/tasa:0));
+  const conVuelto=sobra>0.009;
+  const neto=r2(recUsd-(conVuelto?vEq:0));
+  const listo=rec.length>0&&Math.abs(neto-total)<0.011;
+  const pagos=[...rec];
+  if(conVuelto){
+    if(vu>0)pagos.push({metodo:'EDIV',montoUSD:-r2(vu),montoBs:tasa?-r2(vu*tasa):null,vuelto:true});
+    if(vb>0)pagos.push({metodo:'EBS',montoUSD:-r2(vb/tasa),montoBs:-r2(vb),vuelto:true});
+  }
+  return{total,tasa,rec,recUsd,sobra,conVuelto,vEq,neto,listo,pagos};
+}
+function updCobro(){
+  if(!pago.opts||!$('#cobroMsg'))return;
+  let E=estadoCobro();
+  const box=$('#vBox');
+  if(E.conVuelto&&pago.vAuto){
+    const enBs=!pago.split&&pago.metodo==='EBS'&&E.tasa;
+    pago.vUsd=enBs?'':String(E.sobra);pago.vBs=enBs?String(r2(E.sobra*E.tasa)):'';
+    $('#vUsd').value=pago.vUsd;$('#vBs').value=pago.vBs;E=estadoCobro();
+  }
+  box.hidden=!E.conVuelto;
+  if(E.conVuelto)$('#vTot').innerHTML=`${usd(E.sobra)}${E.tasa?`<small>${bs(E.sobra*E.tasa)}</small>`:''}`;
+  const m=$('#cobroMsg');
+  if(!E.rec.length){m.className='small muted';m.textContent=pago.split?'Escribe cuánto pagó con cada método.':'Elige cómo pagó.'}
+  else if(E.listo){m.className='small ok';m.textContent=E.conVuelto?'Cuadra: recibió '+usd(E.recUsd)+' y se le da '+usd(E.vEq)+' de vuelto':'Cuadra con el total'}
+  else if(E.sobra<-0.009){m.className='small warn';m.textContent='Falta '+usd(-E.sobra)+(E.tasa?' ('+bs(-E.sobra*E.tasa)+')':'')}
+  else{const d=r2(E.sobra-E.vEq);m.className='small warn';m.textContent=d>0?'Falta anotar '+usd(d)+(E.tasa?' ('+bs(d*E.tasa)+')':'')+' de vuelto':'El vuelto es mayor por '+usd(-d)}
+  const b=document.querySelector('[data-act="pagar"]');if(b)b.disabled=!E.listo;
+}
+/* Texto corto de cómo se pagó un pedido (sin contar el vuelto). */
+function pagosTxt(p){const ps=p.pagos||[];const r=[...new Set(ps.filter(x=>!x.vuelto).map(x=>METODOS[x.metodo].n))].join(' + ');return r+(ps.some(x=>x.vuelto)?' · vuelto':'')}
+function pagosDetalle(p){
+  const ps=p.pagos||[];if(!ps.length)return'Sin cobrar';
+  const f=x=>`${METODOS[x.metodo].n}: ${METODOS[x.metodo].mon==='USD'?usd(Math.abs(x.montoUSD)):bs(Math.abs(x.montoBs))}`;
+  const v=ps.filter(x=>x.vuelto);
+  return ps.filter(x=>!x.vuelto).map(f).join(' · ')+(v.length?`<br><span class="warn">Vuelto: ${v.map(x=>METODOS[x.metodo].mon==='USD'?usd(-x.montoUSD):bs(-x.montoBs)).join(' + ')}</span>`:'');
 }
 function calcSplit(tasa){let u=0;const pagos=[];for(const m of ORDEN_MET){const v=+pago.montos[m]||0;if(v<=0)continue;if(METODOS[m].mon==='USD'){pagos.push({metodo:m,montoUSD:r2(v),montoBs:tasa?r2(v*tasa):null});u+=v}else{const e=tasa?v/tasa:0;pagos.push({metodo:m,montoUSD:r2(e),montoBs:r2(v)});u+=e}}return{usd:r2(u),pagos}}
 function pagosSimples(m,total,tasa){return[{metodo:m,montoUSD:r2(total),montoBs:tasa?r2(total*tasa):null}]}
@@ -490,7 +548,7 @@ function guardarPedido(pagos,abierta,referencia){
   if(!items.length)return;
   if(editPedido){
     const p=editPedido, delta=restar(consumoDe(items),consumoDe(p.items));
-    const data={items,totalUSD:total,totalBs:p.tasa?r2(total*p.tasa):null,editadoTs:Date.now()};
+    const data={items,totalUSD:total,totalBs:p.tasa?r2(total*p.tasa):null,editadoTs:Date.now(),editadoPor:t?t.encargado:'Administración'};
     const a={};
     if(pagos){data.pagos=pagos;if(p.estado==='pagado'){incPagos(a,p.pagos,-1,fechaCobro(p));incPagos(a,pagos,+1,fechaCobro(p))}}
     Store.write([{col:'pedidos',id:p.id,data,merge:true},...opsStock(delta),...opSaldos(a)]);
@@ -539,7 +597,7 @@ function vCaja(){
   </div>
   <div class="card">
     <h2>Pedidos del turno</h2>
-    ${vs.length?`<div class="list" style="margin-top:6px">${vs.map(p=>`<button class="li" data-act="verPedido" data-id="${p.id}"><div class="grow"><div class="t">#${p.num}${p.referencia?' · '+esc(p.referencia):''} <span class="xs muted">${hora(p.cobroTs||p.ts)}</span></div><div class="s">${p.items.map(i=>i.qty+'× '+esc(i.nombre)).join(', ')}</div></div><div class="amt num">${usd(p.totalUSD)}<small>${(p.pagos||[]).map(x=>METODOS[x.metodo].n).join(' + ')}</small></div></button>`).join('')}</div>`:`<div class="empty small">Todavía no hay pedidos cobrados en este turno.</div>`}
+    ${vs.length?`<div class="list" style="margin-top:6px">${vs.map(p=>`<button class="li" data-act="verPedido" data-id="${p.id}"><div class="grow"><div class="t">#${p.num}${p.referencia?' · '+esc(p.referencia):''} <span class="xs muted">${hora(p.cobroTs||p.ts)}</span></div><div class="s">${p.items.map(i=>i.qty+'× '+esc(i.nombre)).join(', ')}</div></div><div class="amt num">${usd(p.totalUSD)}<small>${pagosTxt(p)}</small></div></button>`).join('')}</div>`:`<div class="empty small">Todavía no hay pedidos cobrados en este turno.</div>`}
   </div>`;
 }
 
@@ -604,12 +662,13 @@ function aResumen(){
   <p class="hint" style="margin:6px 0 0">Los Bs son los montos cobrados con la tasa de cada pedido. Lo cobrado por punto de venta llega al banco al día siguiente.</p></div>
   ${Object.keys(dias).length>1?`<div class="card"><h2>Ventas por día</h2><div class="list" style="margin-top:6px">${Object.entries(dias).sort().reverse().map(([f,v])=>`<div class="li"><span class="grow">${fechaCorta(f)}</span><span class="amt num">${usd(v)}<small>${bs(diasBs[f])}</small></span></div>`).join('')}</div></div>`:''}
   ${pedidosCard(D.pedidos.filter(p=>!p.eliminado&&p.fecha>=a&&p.fecha<=b),a===b?'Pedidos del día':'Pedidos del período')}
+  ${(()=>{const bo=D.pedidos.filter(p=>p.eliminado&&p.estado!=='cancelado'&&p.fecha>=a&&p.fecha<=b).sort((x,y)=>(y.eliminadoTs||0)-(x.eliminadoTs||0));return bo.length?`<details class="card"><summary class="row" style="list-style:none"><h2>Pedidos borrados</h2><span class="tag bad">${bo.length}</span></summary><div class="list" style="margin-top:8px">${bo.map(p=>`<div class="li"><div class="grow"><div class="t">#${p.num} <span class="xs muted">${fechaCorta(p.fecha)} ${hora(p.ts)} · ${esc(p.encargado||'')}</span></div><div class="s">${p.items.map(i=>i.qty+'× '+esc(i.nombre)).join(', ')}</div><div class="s">Borrado ${p.eliminadoTs?hora(p.eliminadoTs):''}${p.eliminadoPor?' por '+esc(p.eliminadoPor):''}</div></div><div class="amt num">${usd(p.totalUSD)}<small>${pagosTxt(p)}</small></div></div>`).join('')}</div></details>`:''})()}
   <div class="card"><h2>Lo más vendido</h2>${top.length?`<div class="stack" style="margin-top:10px">${top.map(([n,x])=>`<div><div class="row small"><span>${esc(n)} <span class="muted">× ${x.q}</span></span><span class="num">${usd(x.v)}</span></div><div class="bar" style="margin-top:4px"><i style="width:${x.v/mx*100}%;background:var(--azul)"></i></div></div>`).join('')}</div>`:`<div class="empty small">Sin ventas en este período.</div>`}</div>`;
 }
 function pedidosCard(lista,titulo,abierto){
   const l=lista.slice().sort((x,y)=>(y.cobroTs||y.ts)-(x.cobroTs||x.ts));
   return `<details class="card" ${abierto?'open':''}><summary class="row" style="list-style:none"><h2>${titulo}</h2><span class="tag azul">${l.length}</span></summary>
-    ${l.length?`<div class="list" style="margin-top:8px">${l.slice(0,150).map(p=>`<button class="li" data-act="verPedido" data-id="${p.id}"><div class="grow"><div class="t">#${p.num}${p.referencia?' · '+esc(p.referencia):''} <span class="xs muted">${p.fecha!==hoy()?fechaCorta(p.fecha)+' ':''}${hora(p.cobroTs||p.ts)}${p.encargado?' · '+esc(p.encargado):''}</span></div><div class="s">${p.items.map(i=>i.qty+'× '+esc(i.nombre)).join(', ')}</div></div><div class="amt num">${usd(p.totalUSD)}<small>${p.estado==='abierto'?'<span class="warn">abierta</span>':(p.pagos||[]).map(x=>METODOS[x.metodo].n).join(' + ')}</small></div></button>`).join('')}</div>${l.length>150?'<p class="hint">Se muestran los 150 más recientes. Elige un período más corto para ver el resto.</p>':''}`:'<div class="empty small">No hay pedidos en este período.</div>'}
+    ${l.length?`<div class="list" style="margin-top:8px">${l.slice(0,150).map(p=>`<button class="li" data-act="verPedido" data-id="${p.id}"><div class="grow"><div class="t">#${p.num}${p.referencia?' · '+esc(p.referencia):''} <span class="xs muted">${p.fecha!==hoy()?fechaCorta(p.fecha)+' ':''}${hora(p.cobroTs||p.ts)}${p.encargado?' · '+esc(p.encargado):''}</span></div><div class="s">${p.items.map(i=>i.qty+'× '+esc(i.nombre)).join(', ')}</div></div><div class="amt num">${usd(p.totalUSD)}<small>${p.estado==='abierto'?'<span class="warn">abierta</span>':pagosTxt(p)}</small></div></button>`).join('')}</div>${l.length>150?'<p class="hint">Se muestran los 150 más recientes. Elige un período más corto para ver el resto.</p>':''}`:'<div class="empty small">No hay pedidos en este período.</div>'}
   </details>`;
 }
 function aCarta(){
@@ -696,17 +755,22 @@ function keep(draw){const vals={};document.querySelectorAll('#sheet input,#sheet
 
 function hojaPedido(id){
   const p=D.pedidos.find(x=>x.id===id)||D.abiertas.find(x=>x.id===id);if(!p)return;
-  const t=turnoActual(), puede=esAdmin()||(t&&(p.cobroTurnoId===t.id||p.turnoId===t.id));
+  const t=turnoActual(), puede=esAdmin()||(t&&(p.cobroTurnoId===t.id||p.turnoId===t.id||p.fecha===hoy()||fechaCobro(p)===hoy()));
   hoja(`<div class="row"><h2>Pedido #${p.num}</h2><button class="btn sm" data-act="close">Cerrar</button></div>
   <div class="stack">
     <div class="small muted">${fechaCorta(p.fecha)} ${hora(p.ts)} · ${esc(p.encargado||'')}${p.referencia?' · '+esc(p.referencia):''}</div>
     <div class="list">${p.items.map(i=>`<div class="li"><span class="grow">${i.qty}× ${esc(i.nombre)}</span><span class="amt num">${usd(i.subtotal)}</span></div>`).join('')}</div>
     <div class="row"><b>Total</b><span class="amt num">${usd(p.totalUSD)}${p.totalBs?`<small>${bs(p.totalBs)}</small>`:''}</span></div>
-    <div class="small">${(p.pagos||[]).map(x=>`${METODOS[x.metodo].n}: ${METODOS[x.metodo].mon==='USD'?usd(x.montoUSD):bs(x.montoBs)}`).join(' · ')||'Sin cobrar'}</div>
-    ${puede?`<div class="btns"><button class="btn azul grow" data-act="editPedido" data-id="${p.id}">Editar productos</button><button class="btn grow" data-act="repagar" data-id="${p.id}">Cambiar pago</button><button class="btn danger" data-act="delPedido" data-id="${p.id}">Borrar</button></div>`:'<p class="hint">Este pedido es de otro turno. Solo administración puede cambiarlo.</p>'}
+    <div class="small">${pagosDetalle(p)}</div>
+    ${puede?`<div class="btns"><button class="btn azul grow" data-act="editPedido" data-id="${p.id}">Editar productos</button><button class="btn grow" data-act="repagar" data-id="${p.id}">Cambiar pago</button><button class="btn danger" data-act="delPedido" data-id="${p.id}">Borrar</button></div>${p.editadoTs?`<p class="hint" style="margin:0">Corregido ${fechaCorta(fechaDe(p.editadoTs))} ${hora(p.editadoTs)}${p.editadoPor?' por '+esc(p.editadoPor):''}</p>`:''}`:'<p class="hint">Este pedido es de otro día. Para cambiarlo, entra a Admin con el PIN y ábrelo desde Resumen.</p>'}
   </div>`);
 }
 
+function hojaPedidosHoy(){
+  const h=hoy(), l=D.pedidos.filter(p=>!p.eliminado&&p.estado==='pagado'&&(p.fecha===h||fechaCobro(p)===h));
+  hoja(`<div class="row"><h2>Pedidos de hoy</h2><button class="btn sm" data-act="close">Cerrar</button></div>
+  <div class="stack"><p class="hint" style="margin:0">Toca un pedido para cambiar productos, cambiar el pago o borrarlo.</p>${pedidosCard(l,'Cobrados hoy',true)}</div>`);
+}
 function hojaAbiertas(){
   const ab=D.abiertas.slice().sort((a,b)=>a.ts-b.ts);
   hoja(`<div class="row"><h2>Cuentas abiertas</h2><button class="btn sm" data-act="close">Cerrar</button></div>
@@ -718,6 +782,7 @@ function hojaAbiertas(){
 function hojaCerrarTurno(){
   const t=turnoActual(), R=resumenTurno(t);
   const pendientes=D.abiertas.filter(p=>p.turnoId===t.id).length;
+  const S=saldos(), kHoy='pos_'+hoy().replace(/-/g,''), posEsp=r2(+(D.saldos||{})[kHoy]||0), posAyer=r2(+(D.saldos||{})['pos_'+sumarDias(hoy(),-1).replace(/-/g,'')]||0);
   hoja(`<div class="row"><h2>Cerrar turno de ${esc(t.encargado)}</h2><button class="btn sm" data-act="close">Cerrar</button></div>
   <form class="stack">
     ${pendientes?`<div class="notice warn">Hay ${pendientes} ${pendientes===1?'cuenta abierta':'cuentas abiertas'} de este turno. Quedarán pendientes para el siguiente turno.</div>`:''}
@@ -726,12 +791,20 @@ function hojaCerrarTurno(){
     <div class="g2"><div class="field"><label for="cBs">Efectivo Bs contado</label><input id="cBs" name="bs" type="number" inputmode="decimal" step="0.01" min="0" required></div>
     <div class="field"><label for="cUsd">Efectivo $ contado</label><input id="cUsd" name="usd" type="number" inputmode="decimal" step="0.01" min="0" required></div></div>
     <div id="cDif" class="small"></div>
+    <div class="divider">Banco y punto de venta</div>
+    <div class="field"><label for="cBan">Banco Bs ahora (lo que dice la cuenta)</label><input id="cBan" name="banco" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Opcional"><span class="hint">La app calcula ${bs(S.bancoBs)}${posAyer?`, contando ${bs(posAyer)} del punto de ayer que ya debería haber llegado`:''}. Si el punto de ayer todavía no llegó, déjalo vacío.</span></div>
+    <div id="cDifBan" class="small"></div>
+    <div class="field"><label for="cPos">Cierre del punto de hoy (total del lote)</label><input id="cPos" name="pos" type="number" inputmode="decimal" step="0.01" min="0" placeholder="Opcional"><span class="hint">Hoy se registró ${bs(posEsp)} por punto de venta. Esto llega al banco mañana. Si el punto se cierra en otro turno, déjalo vacío.</span></div>
+    <div id="cDifPos" class="small"></div>
     <div class="field"><label for="cNota">Nota (opcional)</label><input id="cNota" name="nota" maxlength="120" placeholder="Ej. faltó vuelto, se pagó gas"></div>
     <button class="btn pri block" type="submit">Cerrar turno</button></form>`,v=>{
       const difBs=r2(+v.bs-R.espBs), difUsd=r2(+v.usd-R.espUsd);
       const cierre={ts:Date.now(),numPedidos:R.ventas.length,totalUSD:R.totalUSD,ventas:R.met,ventasUSD:R.metUsd,gastos:R.gMet,gastosUSD:R.gastosUSD,
         espBs:R.espBs,espUsd:R.espUsd,contBs:r2(+v.bs),contUsd:r2(+v.usd),difBs,difUsd,nota:v.nota.trim()};
-      Store.write([{col:'turnos',id:t.id,data:{estado:'cerrado',cierre}},...opSaldos({efectivoBs:difBs,efectivoUSD:difUsd})]);
+      const aj={efectivoBs:difBs,efectivoUSD:difUsd};
+      if(v.banco!==''){const d=r2(+v.banco-S.bancoBs);Object.assign(cierre,{bancoEsp:S.bancoBs,bancoReal:r2(+v.banco),difBanco:d});addI(aj,'bancoBs',d)}
+      if(v.pos!==''){const d=r2(+v.pos-posEsp);Object.assign(cierre,{posFecha:hoy(),posEsp,posReal:r2(+v.pos),difPos:d});addI(aj,kHoy,d)}
+      Store.write([{col:'turnos',id:t.id,data:{estado:'cerrado',cierre}},...opSaldos(aj)]);
       turnoId=null;lsSet('guayoyo2_turno',null);cerrarHoja();tab='vender';render();
       toast(Math.abs(difBs)<0.01&&Math.abs(difUsd)<0.01?'Turno cerrado. Todo cuadró.':'Turno cerrado con diferencia');
     });
@@ -739,6 +812,9 @@ function hojaCerrarTurno(){
     const fx=(d,f)=>Math.abs(d)<0.01?'<span class="ok">cuadra</span>':`<span class="${d>0?'ok':'bad'}">${d>0?'sobran':'faltan'} ${f(Math.abs(d))}</span>`;
     $('#cDif').innerHTML=`Debe haber ${bs(R.espBs)} y ${usd(R.espUsd)}.<br>${b!==''?'Bs: '+fx(+b-R.espBs,bs):''}${b!==''&&u!==''?' · ':''}${u!==''?'$: '+fx(+u-R.espUsd,usd):''}`};
   $('#cBs').oninput=upd;$('#cUsd').oninput=upd;
+  const fb=d=>Math.abs(d)<0.01?'<span class="ok">cuadra</span>':`<span class="${d>0?'ok':'bad'}">${d>0?'hay':'faltan'} ${bs(Math.abs(d))} ${d>0?'de más':''}</span>`;
+  $('#cBan').oninput=e=>{const x=e.target.value;$('#cDifBan').innerHTML=x===''?'':'Banco: '+fb(+x-S.bancoBs)+'. La app se ajustará a lo que escribiste.'};
+  $('#cPos').oninput=e=>{const x=e.target.value;$('#cDifPos').innerHTML=x===''?'':'Punto: '+fb(+x-posEsp)+'. Mañana se sumará al banco lo que dice el lote.'};
 }
 
 function hojaVerTurno(id){
@@ -753,6 +829,8 @@ function hojaVerTurno(id){
     <div class="row"><span>Gastos</span><span class="num bad">${usd(c.gastosUSD)}</span></div>
     <div class="card" style="background:var(--sunk);border:0"><div class="row"><span>Efectivo Bs: debía ${bs(c.espBs)}, contó ${bs(c.contBs)}</span></div><div>${fx(c.difBs,bs)}</div>
     <div class="row" style="margin-top:6px"><span>Efectivo $: debía ${usd(c.espUsd)}, contó ${usd(c.contUsd)}</span></div><div>${fx(c.difUsd,usd)}</div></div>
+    ${c.bancoReal!=null?`<div class="row" style="margin-top:6px"><span>Banco: la app decía ${bs(c.bancoEsp)}, había ${bs(c.bancoReal)}</span></div><div>${fx(c.difBanco,bs)}</div>`:''}
+    ${c.posReal!=null?`<div class="row" style="margin-top:6px"><span>Cierre del punto: registrado ${bs(c.posEsp)}, lote ${bs(c.posReal)}</span></div><div>${fx(c.difPos,bs)}</div>`:''}
     ${c.nota?`<div><b>Nota:</b> ${esc(c.nota)}</div>`:''}`:`<button class="btn danger" data-act="forzarCierre" data-id="${t.id}">Marcar como cerrado sin cuadre</button>`}
     ${pedidosCard(D.pedidos.filter(p=>!p.eliminado&&p.estado==='pagado'&&p.cobroTurnoId===t.id),'Pedidos del turno',true)}
   </div>`);
@@ -1310,7 +1388,7 @@ document.addEventListener('click',e=>{
   if(d.cat){cat=d.cat;render();return}
   if(d.add){cart[d.add]=(cart[d.add]||0)+1;render();return}
   if(d.q){const n=(cart[d.q]||0)+ +d.d;if(n<=0)delete cart[d.q];else cart[d.q]=n;if(!itemsCarrito().length){cerrarHoja();render();return}pago.draw&&pago.draw();render();return}
-  if(d.pay){pago.metodo=d.pay;pago.draw();return}
+  if(d.pay){if(pago.metodo!==d.pay){pago.metodo=d.pay;pago.recibido='';pago.vUsd='';pago.vBs='';pago.vAuto=true}pago.draw();return}
   if(d.sub){adminSub=d.sub;render();return}
   if(d.rango){resumenRango=d.rango;render();return}
   const id=d.id;
@@ -1321,24 +1399,26 @@ document.addEventListener('click',e=>{
     case 'bloquear':ssSet('guayoyo2_admin',null);if(tab==='admin')tab='vender';render();toast('Administración bloqueada');break;
     case 'quien':quienSel=d.n;render();break;
     case 'unirTurno':turnoId=id;lsSet('guayoyo2_turno',id);render();break;
-    case 'cobrar':{const t=turnoActual();if(!t)return;
+    case 'cobrar':{const t=turnoActual();if(!t&&!(editPedido&&esAdmin()))return;
       if(editPedido&&editPedido.estado==='abierto'){guardarPedido(null);break}
       const tasa=editPedido?editPedido.tasa:tasaHoy();
       sheetCobro({conCarrito:true,tasa,titulo:editPedido?'Pedido #'+editPedido.num:'Cobrar',boton:editPedido?'Guardar cambios':'Guardar pedido',
         onPagar:pagos=>guardarPedido(pagos),onAbierta:editPedido?null:ref=>guardarPedido(null,true,ref)});break}
-    case 'split':pago.split=!pago.split;pago.montos={};pago.draw();break;
-    case 'pagar':{const o=pago.opts,total=o.conCarrito?totalCarrito():o.total;const pagos=pago.split?calcSplit(o.tasa).pagos:pagosSimples(pago.metodo,total,o.tasa);o.onPagar(pagos);break}
+    case 'split':pago.split=!pago.split;pago.montos={};pago.recibido='';pago.vUsd='';pago.vBs='';pago.vAuto=true;pago.draw();break;
+    case 'vTodo':{const E=estadoCobro();pago.vAuto=false;if(d.m==='bs'&&E.tasa){pago.vUsd='';pago.vBs=String(r2(E.sobra*E.tasa))}else{pago.vUsd=String(E.sobra);pago.vBs=''}$('#vUsd').value=pago.vUsd;$('#vBs').value=pago.vBs;updCobro();break}
+    case 'pagar':{const E=estadoCobro();if(!E.listo)return;pago.opts.onPagar(E.pagos);break}
     case 'dejarAbierta':{const r=($('#refAb').value||'').trim();if(!r){$('#refAb').focus();toast('Escribe un nombre para la cuenta');return}pago.opts.onAbierta(r);break}
     case 'cancelEdit':editPedido=null;cart={};render();break;
     case 'abiertas':hojaAbiertas();break;
+    case 'pedidosHoy':hojaPedidosHoy();break;
     case 'cobrarAbierta':{const p=D.abiertas.find(x=>x.id===id),t=turnoActual();if(!p||!t)return;const tasa=p.tasa||tasaHoy();
       sheetCobro({total:p.totalUSD,tasa,titulo:'Cobrar '+(p.referencia||'#'+p.num),boton:'Cobrar',onPagar:pagos=>{const a={};incPagos(a,pagos,+1,hoy());Store.write([{col:'pedidos',id:p.id,data:{estado:'pagado',pagos,cobroTurnoId:t.id,cobroTs:Date.now(),cobradoPor:t.encargado,tasa,totalBs:tasa?r2(p.totalUSD*tasa):null}},...opSaldos(a)]);cerrarHoja();toast('Cuenta cobrada')}});break}
     case 'agregarAbierta':{const p=D.abiertas.find(x=>x.id===id);if(!p)return;editPedido=p;cart=Object.fromEntries(p.items.map(i=>[i.id,i.qty]));cerrarHoja();tab='vender';render();toast('Agrega productos y toca Cobrar → Guardar cambios');break}
     case 'cancelAbierta':{if(!arm(el,'¿Cancelar? Toca otra vez'))return;const p=D.abiertas.find(x=>x.id===id);Store.write([{col:'pedidos',id,data:{eliminado:true,estado:'cancelado',eliminadoTs:Date.now()}},...opsStock(restar({},consumoDe(p.items)))]);hojaAbiertas();toast('Cuenta cancelada');break}
     case 'verPedido':hojaPedido(id);break;
     case 'editPedido':{const p=D.pedidos.find(x=>x.id===id);editPedido=p;cart=Object.fromEntries(p.items.map(i=>[i.id,i.qty]));cerrarHoja();tab='vender';render();break}
-    case 'repagar':{const p=D.pedidos.find(x=>x.id===id);sheetCobro({total:p.totalUSD,tasa:p.tasa,titulo:'Cambiar pago #'+p.num,boton:'Guardar pago',onPagar:pagos=>{const a={};incPagos(a,p.pagos,-1,fechaCobro(p));incPagos(a,pagos,+1,fechaCobro(p));Store.write([{col:'pedidos',id,data:{pagos}},...opSaldos(a)]);cerrarHoja();toast('Pago actualizado')}});break}
-    case 'delPedido':{if(!arm(el,'¿Borrar? Toca otra vez'))return;const p=D.pedidos.find(x=>x.id===id);const a={};if(p.estado==='pagado')incPagos(a,p.pagos,-1,fechaCobro(p));Store.write([{col:'pedidos',id,data:{eliminado:true,eliminadoTs:Date.now()}},...opsStock(restar({},consumoDe(p.items))),...opSaldos(a)]);cerrarHoja();toast('Pedido borrado');break}
+    case 'repagar':{const p=D.pedidos.find(x=>x.id===id);sheetCobro({total:p.totalUSD,tasa:p.tasa,titulo:'Cambiar pago #'+p.num,boton:'Guardar pago',onPagar:pagos=>{const a={};incPagos(a,p.pagos,-1,fechaCobro(p));incPagos(a,pagos,+1,fechaCobro(p));const tt=turnoActual();Store.write([{col:'pedidos',id,data:{pagos,editadoTs:Date.now(),editadoPor:tt?tt.encargado:'Administración'}},...opSaldos(a)]);cerrarHoja();toast('Pago actualizado')}});break}
+    case 'delPedido':{if(!arm(el,'¿Borrar? Toca otra vez'))return;const p=D.pedidos.find(x=>x.id===id);const a={};if(p.estado==='pagado')incPagos(a,p.pagos,-1,fechaCobro(p));const tt=turnoActual();Store.write([{col:'pedidos',id,data:{eliminado:true,eliminadoTs:Date.now(),eliminadoPor:tt?tt.encargado:'Administración'}},...opsStock(restar({},consumoDe(p.items))),...opSaldos(a)]);if(editPedido&&editPedido.id===id){editPedido=null;cart={}}cerrarHoja();render();toast('Pedido borrado');break}
     case 'gasto':hojaGasto(id);break;
     case 'delGasto':{if(!arm(el,'¿Borrar? Toca otra vez'))return;const g=D.gastos.find(x=>x.id===id),a={};incMov(a,g.metodo,g.montoBs,g.montoUSD,+1,g.fecha,false);Store.write([{col:'gastos',id,data:{eliminado:true}},...opSaldos(a)]);cerrarHoja();toast('Gasto borrado');break}
     case 'cerrarTurno':hojaCerrarTurno();break;
@@ -1356,7 +1436,14 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('input',e=>{
   const sp=e.target.dataset?.sp;
-  if(sp){pago.montos[sp]=e.target.value;const o=pago.opts,total=o.conCarrito?totalCarrito():o.total,a=calcSplit(o.tasa),f=r2(total-a.usd);const m=$('#splitMsg');if(m){m.className='small '+(Math.abs(f)<0.01?'ok':'warn');m.textContent=Math.abs(f)<0.01?'Cuadra con el total':f>0?'Falta asignar '+usd(f):'Sobran '+usd(-f)}const b=document.querySelector('[data-act="pagar"]');if(b)b.disabled=!(Math.abs(f)<0.01&&a.pagos.length);return}
+  if(sp){pago.montos[sp]=e.target.value;pago.vAuto=true;updCobro();return}
+  if(e.target.dataset?.rec!=null){pago.recibido=e.target.value;pago.vAuto=true;updCobro();return}
+  const vu=e.target.dataset?.vu;
+  if(vu){pago.vAuto=false;const o=pago.opts,ta=o.tasa;pago[vu==='usd'?'vUsd':'vBs']=e.target.value;
+    const E=estadoCobro();if(E.conVuelto&&ta){const v=+e.target.value||0;
+      if(vu==='usd'){const r=r2((E.sobra-v)*ta);pago.vBs=r>0?String(r):'';$('#vBs').value=pago.vBs}
+      else{const r=r2(E.sobra-v/ta);pago.vUsd=r>0?String(r):'';$('#vUsd').value=pago.vUsd}}
+    updCobro();return}
   const pin=e.target.dataset?.pin;
   if(pin!=null){e.target.value=e.target.value.replace(/\D/g,'').slice(-1);if(e.target.value){const n=document.querySelector(`[data-pin="${+pin+1}"]`);if(n)n.focus();else{const f=$('#fPin');if(f&&D.config.pinHash)f.requestSubmit()}}}
 });
