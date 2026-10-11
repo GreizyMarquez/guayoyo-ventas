@@ -212,7 +212,7 @@ const FIREBASE_CONFIG = {
   appId: "1:195298633525:web:a20e4e22de15c916508e7c"
 };
 const FB_VER = '10.12.2';
-const APP_VERSION = '2.5';
+const APP_VERSION = '2.6';
 
 /* ---------- utilidades ---------- */
 const $=s=>document.querySelector(s);
@@ -555,7 +555,7 @@ function guardarPedido(pagos,abierta,referencia){
     toast('Pedido #'+p.num+' actualizado');
   }else{
     const tasa=tasaHoy(), id=uid(), ts=Date.now();
-    const num=D.pedidos.filter(p=>p.fecha===hoy()&&!p.eliminado).length+1;
+    const num=D.pedidos.filter(p=>p.turnoId===t.id&&!p.eliminado).length+1;
     const p={num,fecha:hoy(),ts,turnoId:t.id,encargado:t.encargado,items,totalUSD:total,tasa,totalBs:tasa?r2(total*tasa):null,
       estado:abierta?'abierto':'pagado',referencia:referencia||'',pagos:abierta?[]:pagos,cobroTurnoId:abierta?null:t.id,cobroTs:abierta?null:ts,eliminado:false};
     const a={};if(!abierta)incPagos(a,pagos,+1,p.fecha);
@@ -661,10 +661,19 @@ function aResumen(){
   <div class="card"><h2>Por método de pago</h2><div class="list" style="margin-top:6px">${ORDEN_MET.map(m=>`<div class="li"><span class="grow">${METODOS[m].n}</span><span class="amt num">${usd(met[m])}<small>${METODOS[m].mon==='BS'?bs(metBs[m])+' · ':''}${tot?Math.round(met[m]/tot*100):0}%</small></span></div>`).join('')}</div>
   <p class="hint" style="margin:6px 0 0">Los Bs son los montos cobrados con la tasa de cada pedido. Lo cobrado por punto de venta llega al banco al día siguiente.</p></div>
   ${Object.keys(dias).length>1?`<div class="card"><h2>Ventas por día</h2><div class="list" style="margin-top:6px">${Object.entries(dias).sort().reverse().map(([f,v])=>`<div class="li"><span class="grow">${fechaCorta(f)}</span><span class="amt num">${usd(v)}<small>${bs(diasBs[f])}</small></span></div>`).join('')}</div></div>`:''}
+  ${(()=>{const G=porTurno(ps);return G.length?`<div class="card"><h2>Ventas por turno</h2><div class="list" style="margin-top:6px">${G.map(g=>`<${g.t?`button data-act="verTurno" data-id="${g.t.id}"`:'div'} class="li"><div class="grow"><div class="t">${nombreTurno(g)}</div><div class="s">${a!==b&&g.t?fechaCorta(g.t.fecha)+' · ':''}${g.ps.length} ${g.ps.length===1?'pedido':'pedidos'}</div></div><span class="amt num">${usd(g.tot)}<small>${bs(g.totBs)}</small></span></${g.t?'button':'div'}>`).join('')}</div><p class="hint" style="margin:6px 0 0">Cada venta cuenta en el turno donde se cobró. Toca un turno para ver su cuadre.</p></div>`:''})()}
   ${pedidosCard(D.pedidos.filter(p=>!p.eliminado&&p.fecha>=a&&p.fecha<=b),a===b?'Pedidos del día':'Pedidos del período')}
   ${(()=>{const bo=D.pedidos.filter(p=>p.eliminado&&p.estado!=='cancelado'&&p.fecha>=a&&p.fecha<=b).sort((x,y)=>(y.eliminadoTs||0)-(x.eliminadoTs||0));return bo.length?`<details class="card"><summary class="row" style="list-style:none"><h2>Pedidos borrados</h2><span class="tag bad">${bo.length}</span></summary><div class="list" style="margin-top:8px">${bo.map(p=>`<div class="li"><div class="grow"><div class="t">#${p.num} <span class="xs muted">${fechaCorta(p.fecha)} ${hora(p.ts)} · ${esc(p.encargado||'')}</span></div><div class="s">${p.items.map(i=>i.qty+'× '+esc(i.nombre)).join(', ')}</div><div class="s">Borrado ${p.eliminadoTs?hora(p.eliminadoTs):''}${p.eliminadoPor?' por '+esc(p.eliminadoPor):''}</div></div><div class="amt num">${usd(p.totalUSD)}<small>${pagosTxt(p)}</small></div></div>`).join('')}</div></details>`:''})()}
   <div class="card"><h2>Lo más vendido</h2>${top.length?`<div class="stack" style="margin-top:10px">${top.map(([n,x])=>`<div><div class="row small"><span>${esc(n)} <span class="muted">× ${x.q}</span></span><span class="num">${usd(x.v)}</span></div><div class="bar" style="margin-top:4px"><i style="width:${x.v/mx*100}%;background:var(--azul)"></i></div></div>`).join('')}</div>`:`<div class="empty small">Sin ventas en este período.</div>`}</div>`;
 }
+function porTurno(lista){
+  const g={};for(const p of lista){const k=p.cobroTurnoId||p.turnoId||'_';(g[k]=g[k]||[]).push(p)}
+  return Object.entries(g).map(([k,ps])=>{const t=D.turnos.find(x=>x.id===k)||null;
+    return{id:k,t,ps,tot:r2(ps.reduce((a,p)=>a+p.totalUSD,0)),totBs:r2(ps.reduce((a,p)=>a+(+p.totalBs||0),0)),ini:t?t.inicioTs:Math.min(...ps.map(p=>p.cobroTs||p.ts))}})
+    .sort((a,b)=>b.ini-a.ini);
+}
+function nombreTurno(G){const t=G.t;if(!t)return 'Sin turno (administración)';const c=t.cierre;
+  return `${esc(t.encargado)} · ${hora(t.inicioTs)}${c?' – '+hora(c.ts):t.estado==='abierto'?' (abierto)':''}`}
 function pedidosCard(lista,titulo,abierto){
   const l=lista.slice().sort((x,y)=>(y.cobroTs||y.ts)-(x.cobroTs||x.ts));
   return `<details class="card" ${abierto?'open':''}><summary class="row" style="list-style:none"><h2>${titulo}</h2><span class="tag azul">${l.length}</span></summary>
@@ -769,7 +778,10 @@ function hojaPedido(id){
 function hojaPedidosHoy(){
   const h=hoy(), l=D.pedidos.filter(p=>!p.eliminado&&p.estado==='pagado'&&(p.fecha===h||fechaCobro(p)===h));
   hoja(`<div class="row"><h2>Pedidos de hoy</h2><button class="btn sm" data-act="close">Cerrar</button></div>
-  <div class="stack"><p class="hint" style="margin:0">Toca un pedido para cambiar productos, cambiar el pago o borrarlo.</p>${pedidosCard(l,'Cobrados hoy',true)}</div>`);
+  <div class="stack"><p class="hint" style="margin:0">Toca un pedido para cambiar productos, cambiar el pago o borrarlo.</p>
+  <div class="card" style="background:var(--sunk);border:0"><div class="row"><span>Total del día</span><b class="num">${usd(r2(l.reduce((a,p)=>a+p.totalUSD,0)))}</b></div><div class="xs muted">${l.length} ${l.length===1?'pedido':'pedidos'} en todos los turnos</div></div>
+  ${(()=>{const G=porTurno(l),ta=turnoActual();if(!G.length)return pedidosCard([],'Cobrados hoy',true);
+    return G.map(g=>pedidosCard(g.ps,`${g.t&&ta&&g.t.id===ta.id?'Este turno: ':'Turno: '}${nombreTurno(g)} · <span class="num">${usd(g.tot)}</span>`,ta?g.id===ta.id:G.indexOf(g)===0)).join('')})()}</div>`);
 }
 function hojaAbiertas(){
   const ab=D.abiertas.slice().sort((a,b)=>a.ts-b.ts);
